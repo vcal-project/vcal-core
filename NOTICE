@@ -1,0 +1,12 @@
+VCAL-core
+Copyright (c) 2025 VCAL-project contributors
+
+This product includes software developed by the VCAL-project contributors.
+Licensed under the Apache License, Version 2.0.
+
+Attribution and Third-Party Notices
+-----------------------------------
+If you add third‑party code/assets that require attribution, list them here.
+Example:
+- “crate-name”, Copyright (c) 20xx The crate-name authors, under MIT.
+  Source: https://crates.io/crates/crate-name
