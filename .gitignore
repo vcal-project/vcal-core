@@ -1,0 +1,17 @@
+# ---- Rust / Cargo ----
+/target/
+**/*.rs.bk
+
+# If this is a library crate, it's common to NOT commit Cargo.lock
+Cargo.lock
+
+# ---- Editor/OS ----
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---- Bench outputs / local artifacts ----
+/benches/target/
+/bench-results/
