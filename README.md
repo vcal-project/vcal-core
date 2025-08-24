@@ -162,4 +162,4 @@ This crate is pure Rust with no `unsafe` in the public API. If you discover a se
 
 Licensed under **Apache‑2.0**. See `LICENSE-Apache-2.0`.
 
-© VCAL contributors.
+© VCAL-project contributors.
