@@ -94,18 +94,18 @@ VCAL exposes Prometheus metrics so you can track cache efficiency, latency, and 
 ## What VCAL exports
 
 **Counters**
-- vcal_cache_hits_total — number of cache hits
-- vcal_cache_misses_total — number of cache misses
-- vcal_llm_requests_total — LLM fallbacks (post-miss)
-- vcal_tokens_saved_total — rough token savings from cache
+- `vcal_cache_hits_total` — number of cache hits
+- `vcal_cache_misses_total` — number of cache misses
+- `vcal_llm_requests_total` — LLM fallbacks (post-miss)
+- `vcal_tokens_saved_total` — rough token savings from cache
 
 **Histograms**
-- vcal_search_latency_seconds — HNSW search time
-- vcal_llm_latency_seconds — LLM call time (if your app records it)
+- `vcal_search_latency_seconds` — HNSW search time
+- `vcal_llm_latency_seconds` — LLM call time (if your app records it)
 
 **Gauges**
-- vcal_index_size — number of cached Q/A entries
--vcal_snapshot_unixtime — Unix time of the last snapshot
+- `vcal_index_size` — number of cached Q/A entries
+- `vcal_snapshot_unixtime` — Unix time of the last snapshot
 
 > Your application (Rust/Python wrapper) should expose the metrics endpoint; the library is metrics-agnostic.
 
@@ -135,11 +135,11 @@ scrape_configs:
       - targets: ["localhost:9108"]
 ```
 
-Reload Prometheus (or restart it if reload isn’t enabled).
+> Reload Prometheus (or restart it if reload isn’t enabled).
 
 ### 3) Grafana quick start
 
-1. Add Prometheus as a data source (URL usually http://localhost:9090).
+1. Add Prometheus as a data source (URL usually `http://localhost:9090`).
 2. Create a new dashboard, then add panels using the PromQL below.
 3. (Optional) Add an “Observability” section to your dashboard with hit rate, latencies, and tokens saved.
 
@@ -179,11 +179,11 @@ vcal_index_size
 ### Example panels to add
 
 - Cache Hit Rate — line: the PromQL for hit rate (above).
-- Search Latency p50/p95 — 2 single-stats or lines using histogram_quantile(0.5/0.95, …).
-- LLM Fallback Rate — line: rate(vcal_llm_requests_total[5m]).
-- Tokens Saved/min — bar/area: rate(vcal_tokens_saved_total[1m]).
-- Index Size — single-stat: vcal_index_size.
-- Snapshot Age — single-stat: snapshot age query (minutes).
+- Search Latency p50/p95 — 2 single-stats or lines using `histogram_quantile(0.5/0.95, …)`.
+- LLM Fallback Rate — line: `rate(vcal_llm_requests_total[5m])`.
+- Tokens Saved/min — bar/area: `rate(vcal_tokens_saved_total[1m])`.
+- Index Size — single-stat: `vcal_index_size`.
+- Snapshot Age — single-stat: `snapshot age query (minutes)`.
 
 ![Grafana overview](docs/assets/grafana-overview.webp)
 
