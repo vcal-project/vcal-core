@@ -1,9 +1,17 @@
 # ---- Rust / Cargo ----
 /target/
 **/*.rs.bk
+**/target/
+*.rlib
+*.a
+*.o
+*.so
+*.dylib
+*.dll
+*.pdb
 
-# If this is a library crate, it's common to NOT commit Cargo.lock
-Cargo.lock
+# Rust / Cargo noise
+Cargo.lock        # (keep if this is a binary repo; ignore if this is a library crate)
 
 # ---- Editor/OS ----
 .DS_Store
@@ -11,7 +19,12 @@ Cargo.lock
 .vscode/
 *.swp
 *.swo
+Thumbs.db
 
 # ---- Bench outputs / local artifacts ----
 /benches/target/
 /bench-results/
+
+*.swp
+.idea/
+.vscode/
