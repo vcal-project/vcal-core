@@ -86,8 +86,69 @@ impl<M: math::Metric> Hnsw<M> {
                 found: query.len(),
             });
         }
-        Ok(self.graph.knn(query, k, &self.metric, self.ef))
+        let hits = self.graph.knn(query, k, &self.metric, self.ef);
+        // Touch winners to feed LRU without taking a write-lock.
+        #[allow(unused_mut)]
+        let mut ids: Vec<u64> = Vec::with_capacity(hits.len());
+        for (eid, _dist) in &hits {
+            ids.push(*eid);
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        self.graph.touch_many(&ids, now);
+        Ok(hits)
     }
+
+    /// Expose basic stats for eviction/monitoring.
+    #[inline]
+    pub fn stats(&self) -> (usize, usize) {
+        self.graph.stats()
+    }
+
+    /// Evict by LRU until caps are satisfied (soft cap helper).
+    pub fn evict_lru_until(
+        &mut self,
+        max_vecs: Option<usize>,
+        max_bytes: Option<usize>,
+    ) -> (usize, usize) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default().as_secs();
+        self.graph.evict_lru_until(max_vecs, max_bytes, now)
+    }
+
+    /// Idempotent delete by external id. Returns true if something was removed.
+    #[inline]
+    pub fn delete(&mut self, ext_id: ExternalId) -> bool {
+        self.graph.delete(ext_id)
+    }
+
+    /// Check whether an id exists.
+    #[inline]
+    pub fn contains(&self, ext_id: ExternalId) -> bool {
+        self.graph.contains_ext(ext_id)
+    }
+
+    /// TTL sweep: evict nodes whose last_hit is older than `ttl_secs`.
+    #[inline]
+    pub fn evict_ttl(&mut self, ttl_secs: u64) -> (usize, usize) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        self.graph.evict_ttl(ttl_secs, now)
+    }
+
+    /// Convenience: number of active vectors.
+    #[inline]
+    pub fn len(&self) -> usize { self.stats().0 }
+
+    /// Convenience: approximate total bytes of active nodes.
+    #[inline]
+    pub fn total_bytes(&self) -> usize { self.stats().1 }
+
 
     // ------------------------------------------------------------------
     // Snapshot helpers (enabled with `serde`)
