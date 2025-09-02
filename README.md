@@ -118,7 +118,7 @@ let existed = idx.delete(42);
 
 ---
 
-## 📈 Observability (Prometheus/Grafana)
+## Observability (Prometheus/Grafana)
 
 VCAL exposes Prometheus metrics so you can track cache efficiency, latency, and saved tokens from day one.
 
