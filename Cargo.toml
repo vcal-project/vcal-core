@@ -1,0 +1,31 @@
+[package]
+name          = "vcal-core"
+version       = "0.1.0"
+description   = "Lightweight in-process HNSW vector index (VCAL core)"
+edition       = "2021"
+rust-version  = "1.56"
+license       = "Apache-2.0"
+repository    = "https://github.com/vcal-project/vcal-core"
+
+resolver = "2"
+
+[features]
+default       = []
+serde         = ["dep:serde", "dep:serde_json"]
+simd          = []
+redis_bench   = ["dep:redis"]
+
+[dependencies]
+rand          = "0.8"
+smallvec      = "1.11"
+ordered-float = "3"
+
+# optional (behind `serde` feature)
+serde         = { version = "1", features = ["derive"], optional = true }
+serde_json    = { version = "1", optional = true }
+
+# optional (behind `redis_bench` feature)
+redis         = { version = "0.23", optional = true }
+
+[dev-dependencies]
+criterion     = "0.5"
