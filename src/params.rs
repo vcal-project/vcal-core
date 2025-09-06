@@ -24,6 +24,7 @@ pub struct HnswBuilder<M: Metric = Cosine> {
 
 impl<M: Metric> HnswBuilder<M> {
     /// Create with defaults (dims is `None`; must be set).
+    #[must_use]
     pub fn new(metric: M) -> Self {
         Self {
             dims: None,
@@ -35,30 +36,43 @@ impl<M: Metric> HnswBuilder<M> {
     }
 
     /// Set dimensionality (required).
+    #[inline]
+    #[must_use]
     pub fn dims(mut self, d: usize) -> Self {
         self.dims = Some(d);
         self
     }
 
     /// Set `M` (max neighbours per layer).
+    /// Clamped to at least 2 (typical HNSW assumption).
+    #[inline]
+    #[must_use]
     pub fn m(mut self, m: usize) -> Self {
-        self.m = m;
+        self.m = m.max(2);
         self
     }
 
-    /// Set efConstruction (controls accuracy vs. build-time).
+    /// Set efConstruction (controls build recall vs. build-time).
+    /// Clamped to at least 1.
+    #[inline]
+    #[must_use]
     pub fn ef_construction(mut self, ef: usize) -> Self {
-        self.ef_construction = ef;
+        self.ef_construction = ef.max(1);
         self
     }
 
-    /// Set efSearch (default search beam width).
+    /// Set efSearch (default query beam width).
+    /// Clamped to at least 1.
+    #[inline]
+    #[must_use]
     pub fn ef_search(mut self, ef: usize) -> Self {
-        self.ef_search = ef;
+        self.ef_search = ef.max(1);
         self
     }
 
     /// Swap metric type (handy when starting from default builder).
+    #[inline]
+    #[must_use]
     pub fn metric<T: Metric>(self, metric: T) -> HnswBuilder<T> {
         HnswBuilder {
             dims: self.dims,
@@ -73,13 +87,15 @@ impl<M: Metric> HnswBuilder<M> {
     ///
     /// Does **not** panic. If `dims()` was not set, this builds an empty index with
     /// `dims = 0`. Any subsequent `insert()` will return `VcalError::DimensionMismatch`.
+    #[must_use]
     pub fn build(self) -> Hnsw<M> {
         let dims = self.dims.unwrap_or(0);
         debug_assert!(dims > 0, "HnswBuilder: call .dims() before build()");
         Hnsw {
             dims,
             m:  self.m,
-            ef: self.ef_search,
+            ef: self.ef_search,           // default search ef
+            efc: self.ef_construction,    // construction ef (used in insert)
             metric: self.metric,
             graph: Graph::new(),
         }
