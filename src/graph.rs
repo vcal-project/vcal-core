@@ -95,7 +95,9 @@ impl Graph {
         }
 
         for l in (0..=lvl).rev() {
-            let mut neigh = self.ef_search_idx(entry, &self.nodes[node_id].vec, ef, l, metric);
+            let ef_eff = ef.max(m.max(1));
+            let mut neigh = self.ef_search_idx(entry, &self.nodes[node_id].vec, ef_eff, l, metric);
+
             neigh.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
 
             let mut ids = Vec::with_capacity(neigh.len());
@@ -266,64 +268,47 @@ impl Graph {
         layer: usize,
         metric: &M,
     ) {
-        // Track net bytes change across nid and all touched neighbors.
-        let mut bytes_delta: isize = 0;
-        // Ensure nid's bytes are up to date before we modify links.
-        let nid_bytes_before = { self.nodes[nid].recompute_bytes() };
-
+        // Select up to m neighbors (pruned per HNSW heuristic)
         let mut selected = SmallVec::<[NodeId; MAX_LINKS_PER_LVL]>::new();
         for &c in neigh {
-            if c == nid { continue; } // no self-edge
+            if c == nid { continue; }                // no self-edge
             if selected.len() >= m { break; }
-            if c == nid {
-                continue; // no self-edge
-            }
-            if selected.len() >= m {
-                break;
-            }
             let ok = selected.iter().all(|&s| {
                 metric.distance(&self.nodes[c].vec, &self.nodes[nid].vec)
                     < metric.distance(&self.nodes[c].vec, &self.nodes[s].vec)
             });
-            if ok {
-                selected.push(c);
-            }
+            if ok { selected.push(c); }
         }
 
-        // Extend nid links in its own scope.
-        {
-            if layer < self.nodes[nid].links.len() {
-                let links = &mut self.nodes[nid].links[layer];
-                links.extend_from_slice(&selected);
-            }
-        }
+        // Track net bytes across nid and all touched neighbors
+        let mut bytes_delta: isize = 0;
 
-        // nid bytes after link extension
-        let nid_bytes_after = { self.nodes[nid].recompute_bytes() };
+        // Extend nid links (bytes before/after properly measured)
+        let nid_bytes_before = self.nodes[nid].recompute_bytes();
+        if layer < self.nodes[nid].links.len() {
+            self.nodes[nid].links[layer].extend_from_slice(&selected);
+        }
+        let nid_bytes_after = self.nodes[nid].recompute_bytes();
         bytes_delta += (nid_bytes_after as isize) - (nid_bytes_before as isize);
 
+        // Add back-links on neighbors (exactly once)
         for &s in &selected {
             if layer < self.nodes[s].links.len() {
+                let s_bytes_before = self.nodes[s].recompute_bytes();
                 self.nodes[s].links[layer].push(nid);
-                // neighbor bytes before
-                let s_bytes_before = { self.nodes[s].recompute_bytes() };
-                {
-                    let adj = &mut self.nodes[s].links[layer];
-                    adj.push(nid);
-                }
-                // neighbor bytes after
-                let s_bytes_after = { self.nodes[s].recompute_bytes() };
+                let s_bytes_after = self.nodes[s].recompute_bytes();
                 bytes_delta += (s_bytes_after as isize) - (s_bytes_before as isize);
             }
         }
 
-        // Apply accumulated delta to total_bytes.
+        // Apply accumulated delta
         if bytes_delta >= 0 {
             self.total_bytes = self.total_bytes.saturating_add(bytes_delta as usize);
         } else {
             self.total_bytes = self.total_bytes.saturating_sub((-bytes_delta) as usize);
         }
     }
+
 }
 
 impl Default for Graph {
@@ -359,17 +344,6 @@ impl Graph {
                 std::mem::take(&mut node.links[l])
             };
             for nb in neigh {
-                if nb < self.nodes.len() && !self.nodes[nb].is_deleted() && l < self.nodes[nb].links.len() {
-                    // neighbor bytes before
-                    let nb_bytes_before = self.nodes[nb].recompute_bytes();
-                    let adj = &mut self.nodes[nb].links[l];
-                    if let Some(pos) = adj.iter().position(|&x| x == nid) {
-                        adj.swap_remove(pos);
-                    }
-                    // neighbor bytes after
-                    let nb_bytes_after = self.nodes[nb].recompute_bytes();
-                    bytes_delta += (nb_bytes_after as isize) - (nb_bytes_before as isize);
-                }
                 if nb >= self.nodes.len() { continue; }
                 if self.nodes[nb].is_deleted() { continue; }
                 if l >= self.nodes[nb].links.len() { continue; }
