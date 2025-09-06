@@ -48,21 +48,55 @@ pub struct Hnsw<M: math::Metric = math::Cosine> {
     pub(crate) dims:   usize,
     pub(crate) m:      usize,
     pub(crate) ef:     usize,
+    pub(crate) efc:    usize,
     pub(crate) metric: M,
     pub(crate) graph:  graph::Graph,
 }
 
 impl<M: math::Metric> Hnsw<M> {
+    /// k-NN search with a per-request `ef` override.
+    /// - `k`: number of neighbors to return (pass k_expand if you overfetch upstream)
+    /// - `ef`: beam width (will be clamped to at least `k` and 1)
+    #[inline]
+    pub fn search_with_ef(&self, query: &[f32], k: usize, ef: usize) -> Result<Vec<SearchHit>> {
+        if self.graph.nodes.is_empty() {
+            return Err(VcalError::EmptyIndex);
+        }
+        if query.len() != self.dims {
+            return Err(VcalError::DimensionMismatch { expected: self.dims, found: query.len() });
+        }
+        // Ensure ef is sane: at least k and >=1
+        let ef_eff = ef.max(k.max(1));
+
+        let hits = self.graph.knn(query, k, &self.metric, ef_eff);
+
+        // Feed LRU without a write-lock (same as `search`)
+        let mut ids: Vec<u64> = Vec::with_capacity(hits.len());
+        for (eid, _dist) in &hits { ids.push(*eid); }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        self.graph.touch_many(&ids, now);
+
+        Ok(hits)
+    }
+
     /// Return the embedding dimensionality this index was built for.
     #[inline] pub fn dims(&self) -> usize { self.dims }
 
     /// Set query-time ef
-    #[inline] pub fn set_ef(&mut self, ef: usize) { self.ef = ef; }
+    #[inline]
+    pub fn set_ef(&mut self, ef: usize) { self.ef = ef.max(1); }
 
     /// (optional) expose common params for tooling
     #[inline] pub fn params(&self) -> (usize, usize) {
         (self.m, self.ef)
     }
+
+    #[inline]
+    pub fn set_ef_construction(&mut self, efc: usize) { self.efc = efc.max(1); }
+
     /// Insert a vector with an external identifier.
     pub fn insert(&mut self, vec: Vec<f32>, ext_id: ExternalId) -> Result<()> {
         if vec.len() != self.dims {
@@ -71,34 +105,17 @@ impl<M: math::Metric> Hnsw<M> {
                 found: vec.len(),
             });
         }
-        self.graph.add(vec, ext_id, &self.metric, self.m, self.ef);
+        self.graph.add(vec, ext_id, &self.metric, self.m, self.efc);
         Ok(())
     }
 
-    /// k-nearest neighbour search.
+    #[inline]
+    pub fn params_full(&self) -> (usize, usize, usize) { (self.m, self.ef, self.efc) }
+
+    /// k-NN search using the index’s default `ef`.
+    #[inline]
     pub fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchHit>> {
-        if self.graph.nodes.is_empty() {
-            return Err(VcalError::EmptyIndex);
-        }
-        if query.len() != self.dims {
-            return Err(VcalError::DimensionMismatch {
-                expected: self.dims,
-                found: query.len(),
-            });
-        }
-        let hits = self.graph.knn(query, k, &self.metric, self.ef);
-        // Touch winners to feed LRU without taking a write-lock.
-        #[allow(unused_mut)]
-        let mut ids: Vec<u64> = Vec::with_capacity(hits.len());
-        for (eid, _dist) in &hits {
-            ids.push(*eid);
-        }
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        self.graph.touch_many(&ids, now);
-        Ok(hits)
+        self.search_with_ef(query, k, self.ef)
     }
 
     /// Expose basic stats for eviction/monitoring.
@@ -155,12 +172,14 @@ impl<M: math::Metric> Hnsw<M> {
     // ------------------------------------------------------------------
     #[cfg(feature = "serde")]
     /// Serialise index to bytes (`serde_json` by default).
+    /// Note: `vcal_core::to_bytes(&hnsw)` is also available as a free function.
     pub fn to_bytes(&self) -> Vec<u8> {
         serialize::to_bytes(self)
     }
 
     #[cfg(feature = "serde")]
     /// Restore index from bytes.
+    /// Note: `vcal_core::from_slice::<M>(bytes)` is also available as a free function.
     pub fn from_slice(bytes: &[u8]) -> Result<Self>
     where
         M: Default,
@@ -192,5 +211,21 @@ mod tests {
         let bytes = h.to_bytes();
         let h2 = Hnsw::<Cosine>::from_slice(&bytes).unwrap();
         assert_eq!(h2.search(&vec![0.5; 8], 1).unwrap()[0].0, 7);
+    }
+
+    #[test]
+    fn search_with_ef_compiles_and_runs() {
+        let mut h = HnswBuilder::<Cosine>::default().dims(8).ef_search(8).build();
+        h.insert(vec![1.0; 8], 1).unwrap();
+        let hits = h.search_with_ef(&vec![1.0; 8], 1, 32).unwrap();
+        assert_eq!(hits[0].0, 1);
+    }
+
+    #[test]
+    fn search_k_zero_returns_empty() {
+        let mut h = HnswBuilder::<Cosine>::default().dims(4).build();
+        h.insert(vec![1.0;4], 1).unwrap();
+        let hits = h.search_with_ef(&[1.0;4], 0, 8).unwrap();
+        assert!(hits.is_empty());
     }
 }
