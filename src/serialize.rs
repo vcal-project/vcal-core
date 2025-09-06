@@ -33,6 +33,8 @@ struct SerIndex {
     dims: usize,
     m: usize,
     ef: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    efc: Option<usize>,          // NEW: construction ef (optional for back-compat)
     graph: SerGraph,
 }
 
@@ -56,6 +58,7 @@ pub fn to_bytes<M: Metric>(idx: &Hnsw<M>) -> Vec<u8> {
         dims: idx.dims,
         m: idx.m,
         ef: idx.ef,
+        efc: Some(idx.efc),
         graph: SerGraph { nodes },
     };
 
@@ -68,6 +71,10 @@ pub fn to_bytes<M: Metric>(idx: &Hnsw<M>) -> Vec<u8> {
 pub fn from_slice<M: Metric + Default>(bytes: &[u8]) -> Result<Hnsw<M>> {
     let snap: SerIndex =
         serde_json::from_slice(bytes).map_err(|e| VcalError::Serialize(e.to_string()))?;
+
+    // Back-compat: if snapshot didn’t carry efc, fall back to ef (≥1)
+    let efc = snap.efc.unwrap_or_else(|| snap.ef.max(1));
+    let ef  = snap.ef.max(1);
 
     // Build a fresh graph
     let mut g = Graph::new();
@@ -124,7 +131,8 @@ pub fn from_slice<M: Metric + Default>(bytes: &[u8]) -> Result<Hnsw<M>> {
     Ok(Hnsw {
         dims: snap.dims,
         m: snap.m,
-        ef: snap.ef,
+        ef,
+        efc,
         metric: M::default(),
         graph: g,
     })
