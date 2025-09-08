@@ -120,7 +120,7 @@ let existed = idx.delete(42);
 
 ### Observability
 `vcal-core` itself is metrics-agnostic.  
-If you need Prometheus/Grafana dashboards, join the pilot https://vcal-project.com/#contact to access [vcal-server](https://github.com/vcal-project/vcal-pro/vcal-server) which exposes `/metrics` for scraping.
+If you need Prometheus/Grafana dashboards, join the pilot https://vcal-project.com/#contact to access vcal-server which exposes `/metrics` for scraping.
 
 ---
 
