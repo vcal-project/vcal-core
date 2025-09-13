@@ -25,7 +25,7 @@ serde         = { version = "1", features = ["derive"], optional = true }
 serde_json    = { version = "1", optional = true }
 
 # optional (behind `redis_bench` feature)
-redis         = { version = "0.23", optional = true }
+redis         = { version = "0.26", optional = true }
 
 [dev-dependencies]
-criterion     = "0.5"
+criterion = { version = "0.5.1", default-features = false }
