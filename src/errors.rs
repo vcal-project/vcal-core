@@ -1,23 +1,15 @@
 //! errors.rs — lightweight error type for VCAL-core
 //!
 //! * No external crates (`thiserror`) to keep MSRV 1.56.
-//! * Use `Result<T>` alias for convenience.
 
 use core::fmt;
 
-/// Result alias used across crate.
 pub type Result<T, E = VcalError> = core::result::Result<T, E>;
 
-/// Minimal error enum; extend as the crate grows.
 #[derive(Debug, Clone)]
 pub enum VcalError {
-    /// Vector passed to `insert`/`search` has wrong dimensionality.
     DimensionMismatch { expected: usize, found: usize },
-
-    /// Search attempted on an empty graph.
     EmptyIndex,
-
-    /// Serialization or deserialization failed (serde feature).
     #[cfg(feature = "serde")]
     Serialize(String),
 }
