@@ -18,17 +18,6 @@
 
 use rand::Rng;
 
-/// Draw a non-negative level given `m` (max neighbours per layer).
-///
-/// * `m` must be ≥ 2 (typical defaults 16–48).  
-/// * Expected value ≈ `log_M N` as the graph grows.
-/// * Returns a non-negative integer — higher values are rarer.
-///
-/// ```rust
-/// // `< 64` is chosen as a safe upper bound for demonstration.
-/// let lvl = vcal_core::draw_level(16.0);
-/// assert!(lvl < 64);
-/// ```
 #[inline]
 pub fn draw_level(m: f64) -> usize {
     debug_assert!(m >= 2.0, "M must be ≥ 2");
