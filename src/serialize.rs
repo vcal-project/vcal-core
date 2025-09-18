@@ -13,14 +13,13 @@ use crate::{
 };
 use std::sync::atomic::Ordering;
 
-// Use fully-qualified derives to avoid scope issues
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SerNode {
     ext_id: u64,
     vec: Vec<f32>,
     links: Vec<Vec<NodeId>>,
-    #[serde(default)]          // backward-compatible: absent in old snapshots
-    last_hit: Option<u64>,     // unix seconds of last access
+    #[serde(default)]
+    last_hit: Option<u64>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -34,18 +33,16 @@ struct SerIndex {
     m: usize,
     ef: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    efc: Option<usize>,          // NEW: construction ef (optional for back-compat)
+    efc: Option<usize>,
     graph: SerGraph,
 }
 
-/// Serialize the index into JSON bytes (single file).
-/// Panics only on OOM / serialization failure.
 pub fn to_bytes<M: Metric>(idx: &Hnsw<M>) -> Vec<u8> {
     let nodes: Vec<SerNode> = idx
         .graph
         .nodes
         .iter()
-        .filter(|n| !n.is_deleted()) // do not persist logically deleted nodes
+        .filter(|n| !n.is_deleted())
         .map(|n| SerNode {
             ext_id: n.ext_id,
             vec: n.vec.clone(),
@@ -65,21 +62,12 @@ pub fn to_bytes<M: Metric>(idx: &Hnsw<M>) -> Vec<u8> {
     serde_json::to_vec(&ser).expect("serialize snapshot")
 }
 
-/// Restore an index from JSON bytes produced by `to_bytes`.
-///
-/// *The node's level is computed as `links.len().saturating_sub(1)`*.
 pub fn from_slice<M: Metric + Default>(bytes: &[u8]) -> Result<Hnsw<M>> {
     let snap: SerIndex =
         serde_json::from_slice(bytes).map_err(|e| VcalError::Serialize(e.to_string()))?;
-
-    // Back-compat: if snapshot didn’t carry efc, fall back to ef (≥1)
     let efc = snap.efc.unwrap_or_else(|| snap.ef.max(1));
     let ef  = snap.ef.max(1);
-
-    // Build a fresh graph
     let mut g = Graph::new();
-
-    // Determine max level so we can size `g.levels`
     let mut max_level = 0usize;
     for sn in &snap.graph.nodes {
         if sn.vec.len() != snap.dims {
@@ -97,7 +85,6 @@ pub fn from_slice<M: Metric + Default>(bytes: &[u8]) -> Result<Hnsw<M>> {
         g.levels.push(Vec::new());
     }
 
-    // Recreate nodes and register them per level; rebuild by_ext/active/bytes
     for sn in snap.graph.nodes.into_iter() {
         let level = sn.links.len().saturating_sub(1);
         let node_id = g.nodes.len() as NodeId;
@@ -117,8 +104,6 @@ pub fn from_slice<M: Metric + Default>(bytes: &[u8]) -> Result<Hnsw<M>> {
         g.levels[level].push(node_id);
     }
 
-    // Pick an entry point: first node on the highest level (if any),
-    // else fallback to 0 for non-empty graphs.
     g.max_level = max_level;
     g.entry = if max_level < g.levels.len() && !g.levels[max_level].is_empty() {
         Some(g.levels[max_level][0])
