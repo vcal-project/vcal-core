@@ -5,15 +5,9 @@
 //! * Optional AVX2 fast-path behind `--features simd` and
 //!   `RUSTFLAGS="-C target-cpu=native"` on x86_64.
 
-/// Blanket trait — all metrics must return **smaller = closer** distance.
 pub trait Metric: Send + Sync + 'static {
     fn distance(&self, a: &[f32], b: &[f32]) -> f32;
 }
-
-/// ----------------------------------------------------------------------
-/// Cosine distance  — returns  1 – cos(θ)  ∈ [0, 2]
-/// Robust to unnormalised inputs; if either vector is zero → 1.0.
-/// ----------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Cosine;
@@ -26,7 +20,6 @@ impl Metric for Cosine {
         let (mut dot, mut na, mut nb) = (0.0_f32, 0.0_f32, 0.0_f32);
         let mut i = 0usize;
 
-        // ---------------- SIMD fast-path (AVX2) ----------------
         #[cfg(all(feature = "simd", target_arch = "x86_64"))]
         unsafe {
             use std::arch::x86_64::*;
@@ -42,7 +35,6 @@ impl Metric for Cosine {
             }
         }
 
-        // ---------------- scalar tail (portable) ---------------
         while i < a.len() {
             let x = a[i];
             let y = b[i];
@@ -53,15 +45,14 @@ impl Metric for Cosine {
         }
 
         if na == 0.0 || nb == 0.0 {
-            return 1.0; // degenerate
+            return 1.0;
         }
         let denom = (na.sqrt() * nb.sqrt()).max(1e-12);
-        let cos = (dot / denom).max(-1.0).min(1.0); // clamp for safety
+        let cos = (dot / denom).max(-1.0).min(1.0);
         1.0 - cos
     }
 }
 
-/// AVX2 helper: horizontal sum of 8-lane register.
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 #[inline]
 unsafe fn _mm256_reduce_add_ps(v: std::arch::x86_64::__m256) -> f32 {
@@ -75,11 +66,6 @@ unsafe fn _mm256_reduce_add_ps(v: std::arch::x86_64::__m256) -> f32 {
     let result = _mm_add_ss(sum64, shuf);
     _mm_cvtss_f32(result)
 }
-
-/// ----------------------------------------------------------------------
-/// Dot-product distance — returns 1 – dot(a, b)
-/// Interprets **smaller = closer**; best when inputs are unit-normalised.
-/// ----------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Dot;
