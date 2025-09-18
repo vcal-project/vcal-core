@@ -17,7 +17,8 @@
 //! let hits = h.search(&vec![1.0; 16], 1).unwrap();
 //! assert_eq!(hits[0].0, 42);
 //! ```
-
+#![deny(unsafe_code)]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 mod errors;
 mod graph;
@@ -184,7 +185,18 @@ impl<M: math::Metric> Hnsw<M> {
     where
         M: Default,
     {
-        serialize::from_slice::<M>(bytes)
+        // 1) deserialize the whole index (Self), not the metric M
+        let mut h: Self = serialize::from_slice::<Self>(bytes)?;
+
+        // 2) auto-repair any minor inconsistencies in the graph
+        let (edges, nodes) = h.graph_mut().sanitize();
+        if edges > 0 || nodes > 0 {
+            log::warn!(
+                "Sanitized snapshot: dropped {} edges, fixed {} nodes",
+                edges, nodes
+            );
+        }
+        Ok(h)
     }
 }
 
