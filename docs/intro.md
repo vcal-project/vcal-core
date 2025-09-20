@@ -1,7 +1,6 @@
 ---
 id: intro
 title: What is vcal-core?
-slug: /
 sidebar_label: Introduction
 ---
 
