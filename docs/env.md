@@ -7,7 +7,8 @@ sidebar_label: Environment variables
 
 ## VCAL — Example .env for apps using vcal-core (library)
 
-vcal-core itself does not read env vars; your app (or vcal-server) should load them via a dotenv loader.
+**vcal-core** itself does not read env vars; your app (or VCAL Server) should load them via a dotenv loader.
+To learn more about VCAL Server contact us [here](https://vcal-project.com/#contact).
 
 ## --- Embedding space ---
 ### One of: cosine | dot
