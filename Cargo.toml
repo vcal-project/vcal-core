@@ -1,6 +1,6 @@
 [package]
 name          = "vcal-core"
-version       = "0.2.0"
+version       = "0.1.0"
 description   = "Lightweight in-process HNSW vector index (VCAL core)"
 edition       = "2021"
 rust-version  = "1.56"
