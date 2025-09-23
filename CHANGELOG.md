@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2025-09-02
+## [0.1.0] - 2025-09-02
 ### Added
 - **Snapshot serialization** (requires `serde` feature):
   - `Hnsw::<Cosine>::to_bytes()` — serialize an index to a compact binary blob.
@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
 - Treat snapshot blobs as versioned but **not yet stable** until `1.0.0`.
 
-## [0.1.0] - 2025-08-01
+## [0.0.1] - 2025-08-01
 ### Added
 - Initial public release with HNSW (Cosine): `HnswBuilder`, `Hnsw`, `insert`, `search`.
 - Basic error types and dimension checks.
