@@ -52,7 +52,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-vcal-core = { version = "0.2", features = ["serde"] }
+vcal-core = { version = "0.1.0", features = ["serde"] }
 ```
 
 Enable optional features as needed:
