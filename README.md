@@ -146,7 +146,6 @@ If you need Prometheus/Grafana dashboards, join the pilot https://vcal-project.c
 
 ## Current limitations
 
-- Batch search not yet in core (implemented at server layer).
 - No official adapters (LangChain/LlamaIndex) yet.
 - WASM/WASI and CLI packaging planned separately.
 - Large-scale ANN (100M+ vectors) out of scope; goal is **embedded/local** use.
