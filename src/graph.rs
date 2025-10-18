@@ -104,6 +104,7 @@ impl Graph {
             if ids.is_empty() && entry != node_id {
                 ids.push(entry);
             }
+            ids.retain(|&x| x < self.nodes.len() && !self.nodes[x].is_deleted() && x != node_id);
             self.connect(node_id, &ids, m, l, metric);
         }
 
@@ -153,7 +154,7 @@ impl Graph {
         loop {
             let mut improved = false;
             for &nb in self.neighbors(curr, layer) {
-                if !self.is_valid_nid(nb) { continue; }            // <-- add
+                if !self.is_valid_nid(nb) { continue; }
                 if metric.distance(&self.nodes[nb].vec, tv) < metric.distance(&self.nodes[curr].vec, tv) {
                     curr = nb; improved = true;
                 }
@@ -168,7 +169,7 @@ impl Graph {
         loop {
             let mut improved = false;
             for &nb in self.neighbors(curr, layer) {
-                if !self.is_valid_nid(nb) { continue; }            // <-- add
+                if !self.is_valid_nid(nb) { continue; }
                 if metric.distance(&self.nodes[nb].vec, q) < metric.distance(&self.nodes[curr].vec, q) {
                     curr = nb; improved = true;
                 }
@@ -241,23 +242,32 @@ impl Graph {
             if ok { selected.push(c); }
         }
 
-        // Ensure layer exists on nid and neighbors
-        let mut ensure_layer = |n: NodeId| {
-            if layer >= self.nodes[n].links.len() {
-                self.nodes[n].links.resize(layer + 1, Vec::new());
+        // Pre-filter: only keep valid neighbors, then do all mutations afterwards.
+        let mut selected_valid = Vec::with_capacity(selected.len());
+        for &s in &selected {
+            if s < self.nodes.len() && !self.nodes[s].is_deleted() && s != nid {
+                selected_valid.push(s);
             }
-        };
-        ensure_layer(nid);
-        for &s in &selected { ensure_layer(s); }
+        }
+
+        // Ensure layer exists on nid and each valid neighbor
+        if layer >= self.nodes[nid].links.len() {
+            self.nodes[nid].links.resize(layer + 1, Vec::new());
+        }
+        for &s in &selected_valid {
+            if layer >= self.nodes[s].links.len() {
+                self.nodes[s].links.resize(layer + 1, Vec::new());
+            }
+        }
 
         // Byte accounting
         let mut bytes_delta: isize = 0;
 
-        // Forward (nid -> selected)
+        // Forward (nid -> selected_valid)
         let nid_before = self.nodes[nid].recompute_bytes();
         {
             let mut adj = std::mem::take(&mut self.nodes[nid].links[layer]);
-            adj.extend(selected.iter().copied());
+            adj.extend(selected_valid.iter().copied());
             adj.retain(|&x| x != nid && x < self.nodes.len() && !self.nodes[x].is_deleted());
             adj.sort_unstable();
             adj.dedup();
@@ -266,8 +276,8 @@ impl Graph {
         let nid_after = self.nodes[nid].recompute_bytes();
         bytes_delta += (nid_after as isize) - (nid_before as isize);
 
-        // Back-edges (selected -> nid)
-        for &s in &selected {
+        // Back-edges (selected_valid -> nid)
+        for &s in &selected_valid {
             let nb_before = self.nodes[s].recompute_bytes();
             {
                 let mut adj = std::mem::take(&mut self.nodes[s].links[layer]);
@@ -337,8 +347,10 @@ impl Graph {
         let mut edges_dropped = 0usize;
         let mut nodes_fixed   = 0usize;
 
-        // Ensure minimal height and purge bad edges
         let nlen = self.nodes.len();
+        // ✅ Precompute deletion flags to avoid immutably borrowing self.nodes while iter_mut is active
+        let deleted: Vec<bool> = self.nodes.iter().map(|n| n.is_deleted()).collect();
+
         for (nid, n) in self.nodes.iter_mut().enumerate() {
             if n.links.is_empty() {
                 n.links.resize(1, Vec::new());
@@ -347,10 +359,18 @@ impl Graph {
             for l in 0..n.links.len() {
                 let adj = &mut n.links[l];
                 let before = adj.len();
-                adj.retain(|&x| x < nlen && x != nid);
-                adj.sort_unstable();
-                adj.dedup();
-                edges_dropped += before.saturating_sub(adj.len());
+
+                // rebuild instead of retain() that closes over &self.nodes
+                let mut new_adj = Vec::with_capacity(adj.len());
+                for &x in adj.iter() {
+                    if x < nlen && x != nid && !deleted[x] {
+                        new_adj.push(x);
+                    }
+                }
+                new_adj.sort_unstable();
+                new_adj.dedup();
+                edges_dropped += before.saturating_sub(new_adj.len());
+                *adj = new_adj;
             }
         }
 
