@@ -1,6 +1,6 @@
 [package]
 name          = "vcal-core"
-version       = "0.1.0"
+version       = "0.1.1"
 description   = "Lightweight in-process HNSW vector index (VCAL core)"
 edition       = "2021"
 rust-version  = "1.56"
@@ -19,6 +19,8 @@ redis_bench   = ["dep:redis"]
 rand          = "0.8"
 smallvec      = "1.11"
 ordered-float = "3"
+bytemuck = { version = "1", features = ["derive"] }
+tracing = "0.1"
 
 # optional (behind `serde` feature)
 serde         = { version = "1", features = ["derive"], optional = true }
