@@ -36,7 +36,6 @@ pub use serialize::{from_slice, to_bytes};
 pub use errors::{Result, VcalError};
 pub use math::{Cosine, Dot};
 pub use params::HnswBuilder;
-
 pub use rand_level::draw_level;
 
 /// Public identifier type attached to each vector.
@@ -185,13 +184,14 @@ impl<M: math::Metric> Hnsw<M> {
     where
         M: Default,
     {
-        // 1) deserialize the whole index (Self), not the metric M
-        let mut h: Self = serialize::from_slice::<Self>(bytes)?;
+        // IMPORTANT: pass the metric type M, not Self.
+        let mut h: Self = serialize::from_slice::<M>(bytes)?;
 
-        // 2) auto-repair any minor inconsistencies in the graph
-        let (edges, nodes) = h.graph_mut().sanitize();
+        // Auto-repair minor inconsistencies in the graph after load.
+        let (edges, nodes) = h.graph.sanitize();
         if edges > 0 || nodes > 0 {
-            log::warn!(
+            // Use `tracing` here; remember to add `tracing = "0.1"` in Cargo.toml of this crate.
+            tracing::warn!(
                 "Sanitized snapshot: dropped {} edges, fixed {} nodes",
                 edges, nodes
             );
