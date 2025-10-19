@@ -13,7 +13,7 @@ In your `Cargo.toml`:
 
 ```toml
 [dependencies]
-vcal-core = "0.1.0"
+vcal-core = "0.1.1"
 serde = { version = "1", features = ["derive"] }
 ```
 ### Optional features
@@ -21,7 +21,7 @@ serde = { version = "1", features = ["derive"] }
 Enable extras via features:
 ```
 [dependencies]
-vcal-core = { version = "0.1.0", features = ["simd", "snapshots"] }
+vcal-core = { version = "0.1.1", features = ["simd", "snapshots"] }
 ```
 - simd – enable SIMD acceleration where available
 - snapshots – enable snapshot (serde) helpers
