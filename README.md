@@ -9,189 +9,117 @@
 
 # ![VCAL mark](docs/assets/vcal-favicon.png) VCAL-core
 
-**VCAL-core** is a lightweight, in-process [HNSW](https://arxiv.org/abs/1603.09320) vector index written in safe Rust with optional SIMD and snapshots.  
-It’s designed as a tiny building block for **semantic caches** (e.g., deduplicate LLM prompts) and embedded ANN search.
+**VCAL-core** is a lightweight, in-process [HNSW](https://arxiv.org/abs/1603.09320) vector index written in safe Rust with optional SIMD and atomic snapshots.  
+It’s designed as a minimal building block for **semantic caches** (e.g., LLM prompt deduplication) and embedded ANN search.
 
-> **MSRV:** 1.56 (edition 2021). *Dev-dependencies/benches may require a newer stable toolchain.*
+> **MSRV:** 1.56 (edition 2021). *Dev-dependencies may require a newer stable toolchain.*
 
 ---
 
 ## Why VCAL-core?
 
-- **Ultra-light:** minimal dependencies, no `unsafe` in the public API.
-- **Fast enough:** competitive k-NN for small/mid indexes (cache/local apps).
-- **Embeddable:** runs in-process, no daemon; works in server, function, and edge contexts.
-- **Deterministic:** single-threaded core (easy to reason about). Wrap in a `RwLock` if you need concurrent reads.
-- **Batteries optional:** SIMD, snapshots, and benches are opt-in.
+- **Ultra-light:** minimal dependencies, no `unsafe` in public API.  
+- **Fast enough:** competitive k-NN for small/mid indexes (edge or cache use).  
+- **Embeddable:** no daemon — runs directly inside your process.  
+- **Deterministic:** single-threaded core; wrap in `RwLock` for concurrency.  
+- **Persistent:** safe paired snapshots and simple TTL/LRU eviction.  
 
 ---
 
-## Features
+## Key Features
 
-- HNSW index with greedy descent + `ef_search` on layer 0
-- Pluggable metrics: **Cosine** (default) and **Dot**
-- **Optional** AVX2 fast-path (`--features simd` + `RUSTFLAGS="-C target-cpu=native"`)
-- **Snapshots** (binary via `serde` feature)  
-  - `to_bytes()`, `from_slice()` for persistence
-- **ID management**
-  - `insert(ext_id, vector)` and `delete(ext_id)`
-  - `contains(ext_id)` to check membership
-  - `upsert` pattern: `delete` then `insert`
-- **Eviction**
-  - `evict_ttl(ttl_secs)` → drop expired items
-  - `evict_lru_until(max_vectors, max_bytes)` → respect soft caps
-- Introspection: `stats()` → `(vector_count, approx_bytes)`
-- Tiny error type (`VcalError`) and `Result` alias
-- No background threads; all I/O left to the application
+- **HNSW index** with greedy descent + `ef_search`  
+- **Pluggable metrics:** `Cosine` (default), `Dot`  
+- **Optional SIMD** (`--features simd` + `RUSTFLAGS="-C target-cpu=native"`)  
+- **Snapshots:** binary persistence with the `serde` feature  
+  - Atomic paired saves prevent corruption (`.index.A` / `.index.B`)  
+  - Automatic recovery from latest intact snapshot  
+- **Eviction:**  
+  - `evict_ttl(ttl_secs)` — remove expired entries  
+  - `evict_lru_until(max_vectors, max_bytes)` — respect soft caps  
+- **Stats:** `stats()` → `(vector_count, approx_bytes)`  
+- **Simple API:** `insert`, `delete`, `contains`, and `search`  
 
 ---
 
 ## Install
 
-Add to your `Cargo.toml`:
-
 ```toml
 [dependencies]
-vcal-core = { version = "0.1.0", features = ["serde"] }
+vcal-core = { version = "0.1.1", features = ["serde"] }
 ```
 
-Enable optional features as needed:
-
-- SIMD (x86_64 AVX2):  
-  `RUSTFLAGS="-C target-cpu=native" cargo build --release --features simd`
-- Snapshots: enable with the `serde` feature
+Optional features:
+- `serde` — enable snapshot persistence  
+- `simd` — AVX2-optimized inner loops (`x86_64` only)  
 
 ---
 
-## Quick start (Rust)
+## Quick Example
 
 ```rust
 use vcal_core::{HnswBuilder, Cosine};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1) Build an index for 128-D using defaults (e.g., M≈16, ef_search≈128)
-    let mut idx = HnswBuilder::<Cosine>::default()
-        .dims(128)
-        .m(32)
-        .build();
-
-    // 2) Insert vectors with your external ids
-    idx.insert(vec![0.1; 128], 1001)?;
-    idx.insert(vec![0.5; 128], 1002)?;
-    idx.insert(vec![0.9; 128], 1003)?;
-
-    // 3) Search k nearest
-    let hits = idx.search(&vec![0.11; 128], 5)?; // Vec<(ext_id, distance)>
-    println!("Top-5: {hits:?}");
-
-    Ok(())
-}
-```
-
-### Snapshot & restore (feature `serde`)
-
-```rust
-use vcal_core::{HnswBuilder, Cosine};
-
-let mut idx = HnswBuilder::<Cosine>::default().dims(8).build();
-idx.insert(vec![0.5; 8], 7)?;
-
-let bytes = idx.to_bytes();              // Binary snapshot
-let restored = vcal_core::Hnsw::<Cosine>::from_slice(&bytes)?;
-assert_eq!(restored.search(&vec![0.5; 8], 1)?[0].0, 7);
+let mut idx = HnswBuilder::<Cosine>::default().dims(128).build();
+idx.insert(vec![0.1; 128], 1001)?;
+let hits = idx.search(&vec![0.1; 128], 5)?;
 ```
 
 ---
 
-### Eviction & delete
+## Persistence (v0.1.1)
 
 ```rust
-// Time-to-live eviction
-let removed = idx.evict_ttl(3600); // drop items older than 1h
+use vcal_core::Index;
+use std::fs::File;
 
-// LRU eviction to soft caps
-let removed = idx.evict_lru_until(Some(1000), Some(8 << 30)); // keep ≤1000 vecs or ≤8GiB
+let idx = Index::new(...)?;
+let f = File::create("vcal.index")?;
+idx.save(f)?; // alternates between paired files safely
+```
 
-// Delete by ext_id
-let existed = idx.delete(42);
+Paired saves guarantee atomic recovery: on restart, `load()` automatically picks the last valid `.index` version.
+
+---
+
+## Eviction
+
+```rust
+idx.evict_ttl(3600);                        // Remove expired entries
+idx.evict_lru_until(Some(1000), None);      // Keep up to 1000 vectors
 ```
 
 ---
 
-### Observability
+## Observability
+
 `vcal-core` itself is metrics-agnostic.  
-If you need Prometheus/Grafana dashboards, join the pilot https://vcal-project.com/#contact to access vcal-server which exposes `/metrics` for scraping.
+For Prometheus and Grafana integration, use **vcal-server**, which exposes `/metrics`.
 
 ---
 
-## Tuning & performance tips
+## Performance Tips
 
-- **Release builds:** `cargo build --release`
-- **SIMD:** `RUSTFLAGS="-C target-cpu=native" cargo build --release --features simd`
-- **Normalize embeddings** for Cosine (L2-unit vectors).
-- **Parameters:**
-  - `m` ~ 16–32 is a good start (graph connectivity).
-  - `ef_search` trades speed vs recall; try 64–256.
-- **Threading:** core is single-threaded; for concurrent reads, wrap in `parking_lot::RwLock`.
-
----
-
-## Design notes
-
-- No background threads in core.
-- No public `unsafe`. AVX2 intrinsics are runtime-checked (when `simd` is enabled).
-- Snapshots serialize only what’s needed; stable APIs evolve until `1.0.0`.
+- Build in release mode:  
+  `cargo build --release`
+- Use native SIMD:  
+  `RUSTFLAGS="-C target-cpu=native" cargo build --release --features simd`
+- Normalize embeddings for cosine metric.
+- Typical parameters:  
+  `m = 16–32`, `ef_search = 64–256`.
 
 ---
 
-## Current limitations
+## Design Principles
 
-- No official adapters (LangChain/LlamaIndex) yet.
-- WASM/WASI and CLI packaging planned separately.
-- Large-scale ANN (100M+ vectors) out of scope; goal is **embedded/local** use.
-
----
-
-## Benchmarks (optional, local)
-
-```bash
-cargo bench
-# With SIMD:
-RUSTFLAGS="-C target-cpu=native" cargo bench --features simd
-```
-
----
-
-## Versioning & MSRV
-
-- **MSRV:** 1.56 (edition 2021).  
-- Follows [SemVer](https://semver.org/).  
-- Minor versions may add APIs; major versions may change public APIs.
-
----
-
-## Contributing
-
-PRs and issues are welcome! Please:
-
-- Run `cargo fmt` and `cargo clippy --all-targets --all-features`
-- Keep changes small and focused
-- Add tests for new behavior
-- Avoid adding dependencies unless strictly justified
-
-If you contribute code, you agree to license your work under Apache-2.0.
-
----
-
-## Security
-
-This crate is pure Rust with no `unsafe` in the public API.  
-If you discover a security issue, please disclose responsibly via a private channel first.
+- No background threads or implicit I/O.  
+- No public `unsafe`.  
+- Snapshot format is stable for 0.x line, versioned from `v0.1.0`.  
+- Optimized for **embedded** and **server-local** caches, not massive-scale ANN.  
 
 ---
 
 ## License
 
-Licensed under **Apache-2.0**. See `LICENSE-Apache-2.0`.
-
-© VCAL-project contributors.
+Licensed under **Apache-2.0**. See `LICENSE-Apache-2.0`  
+© 2025 VCAL-project contributors
