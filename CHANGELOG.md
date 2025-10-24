@@ -4,6 +4,42 @@ All notable changes to **vcal-core** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2025-10-10
+### Added
+- **Paired snapshot mechanism** to ensure atomic persistence:
+  - `Index::save()` now safely alternates between paired `.index` files to prevent corruption on crash or power loss.
+  - Snapshot loading automatically picks the latest intact version.
+- **Integrated autosave hooks** (when enabled by server or wrapper):
+  - Designed for background persistence during runtime or graceful shutdown.
+- **New internal metrics counters** for TTL and LRU evictions (available to higher layers).
+- **Expanded tests and benchmarks** for concurrent upsert, search, and snapshot recovery.
+
+### Changed
+- **Improved eviction precision**: TTL and LRU eviction now return consistent `(removed, freed_bytes)` across runs.
+- **Optimized snapshot I/O** to minimize memory copies on large datasets.
+- **Refined in-memory stats** — more accurate accounting of `approx_bytes` and reduced overcount on vector reuse.
+- **Simplified API surface** for snapshot and persistence features — aligned with VCAL Server persistence layer.
+
+### Fixed
+- Resolved rare panic on startup when loading incomplete `.index` file.
+- Fixed internal timestamp drift that could affect TTL expiration in long-running sessions.
+- Eliminated data race conditions during simultaneous TTL + LRU sweeps.
+
+### Migration Notes
+- Existing `.index` files remain compatible; paired saves introduce no format changes.
+- To enable paired persistence in your app or service:
+  ```rust
+  use vcal_core::Index;
+  use std::fs::File;
+
+  let idx = Index::new(...)?;
+  let f = File::create("vcal.index")?;
+  idx.save(f)?; // alternates between .index.A and .index.B internally
+  ```
+- Always stop background writers before shutdown to ensure both pairs stay consistent.
+
+---
+
 ## [0.1.0] - 2025-09-02
 ### Added
 - **Snapshot serialization** (requires `serde` feature):
