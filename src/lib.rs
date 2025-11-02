@@ -1,7 +1,7 @@
 //! VCAL-core — minimal in-process HNSW vector index.
 //!
 //! * Library MSRV 1.56  (edition 2021)
-//! • Dev-dependencies/benches may require a newer stable toolchain.
+//! * Dev-dependencies/benches may require a newer stable toolchain.
 //! * Optional AVX2 fast-path behind `--features simd`  
 //! * Optional snapshot via `serde` feature
 //!
@@ -161,6 +161,11 @@ impl<M: math::Metric> Hnsw<M> {
     /// Convenience: number of active vectors.
     #[inline]
     pub fn len(&self) -> usize { self.stats().0 }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 
     /// Convenience: approximate total bytes of active nodes.
     #[inline]
