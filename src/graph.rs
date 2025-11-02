@@ -83,7 +83,7 @@ impl Graph {
 
         let mut entry = old_entry.unwrap_or(node_id);
 
-        if node_id != entry && old_max >= lvl + 1 {
+        if node_id != entry && old_max > lvl {
             for l in (lvl + 1..=old_max).rev() {
                 entry = self.greedy(entry, node_id, l, metric);
             }
