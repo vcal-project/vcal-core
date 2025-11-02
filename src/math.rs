@@ -47,8 +47,9 @@ impl Metric for Cosine {
         if na == 0.0 || nb == 0.0 {
             return 1.0;
         }
-        let denom = (na.sqrt() * nb.sqrt()).max(1e-12);
-        let cos = (dot / denom).max(-1.0).min(1.0);
+        const EPS: f32 = 1e-12;
+        let denom = (na.sqrt() * nb.sqrt()).max(EPS);
+        let cos = (dot / denom).clamp(-1.0, 1.0);
         1.0 - cos
     }
 }
