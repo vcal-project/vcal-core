@@ -22,11 +22,14 @@ cargo build --release
 cargo test --release
 ```
 
-This will produce the optimized static library at:
+This will compile the optimized Rust library artifact:
 
 ```
 target/release/libvcal_core.rlib
 ```
+
+> The `libvcal_core.rlib` file is used internally by Cargo when linking other Rust crates.  
+> You do not need to reference it manually unless building a custom FFI wrapper.
 
 ---
 
@@ -44,6 +47,8 @@ Then build:
 ```bash
 cargo build --release
 ```
+
+Cargo will automatically link against the compiled `libvcal_core.rlib` in your local build cache.
 
 ---
 
