@@ -119,6 +119,10 @@ For Prometheus and Grafana integration, use **vcal-server**, which exposes `/met
 
 ---
 
+For Python and chatbot integration, see [INSTALL.md](INSTALL.md).
+
+---
+
 ## License
 
 Licensed under **Apache-2.0**. See `LICENSE-Apache-2.0`  
