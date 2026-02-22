@@ -224,4 +224,4 @@ It’s ideal for embedding directly inside your AI backend, LangChain agent, or 
 
 ---
 
-© 2025 VCAL-project contributors — Licensed under Apache-2.0.
+© 2026 VCAL-project contributors — Licensed under Apache-2.0.
