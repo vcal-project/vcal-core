@@ -126,4 +126,4 @@ For Python and chatbot integration, see [INSTALL.md](INSTALL.md).
 ## License
 
 Licensed under **Apache-2.0**. See `LICENSE-Apache-2.0`  
-© 2025 VCAL-project contributors
+© 2026 VCAL-project contributors
