@@ -12,8 +12,8 @@ pub struct Node {
     pub(crate) vec: Vec<f32>,
     pub(crate) links: Vec<Vec<NodeId>>,
     pub(crate) last_hit: AtomicU64,
-    pub(crate) deleted:  AtomicBool,
-    pub(crate) bytes:    usize,
+    pub(crate) deleted: AtomicBool,
+    pub(crate) bytes: usize,
 }
 
 impl Node {

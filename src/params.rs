@@ -5,20 +5,20 @@
 use crate::{
     graph::Graph,
     math::{Cosine, Metric},
-    Hnsw,
+    Hnsw, Result, VcalError,
 };
 
 /// Reasonable defaults from the HNSW paper (Malkov, 2018).
-const DEF_M: usize              = 16;
+const DEF_M: usize = 16;
 const DEF_EF_CONSTRUCTION: usize = 200;
-const DEF_EF_SEARCH: usize       = 128;
+const DEF_EF_SEARCH: usize = 128;
 
 pub struct HnswBuilder<M: Metric = Cosine> {
-    dims:             Option<usize>,
-    m:                usize,
-    ef_construction:  usize,
-    ef_search:        usize,
-    metric:           M,
+    dims: Option<usize>,
+    m: usize,
+    ef_construction: usize,
+    ef_search: usize,
+    metric: M,
 }
 
 impl<M: Metric> HnswBuilder<M> {
@@ -73,18 +73,20 @@ impl<M: Metric> HnswBuilder<M> {
         }
     }
 
-    #[must_use]
-    pub fn build(self) -> Hnsw<M> {
-        let dims = self.dims.unwrap_or(0);
-        debug_assert!(dims > 0, "HnswBuilder: call .dims() before build()");
-        Hnsw {
+    pub fn build(self) -> Result<Hnsw<M>> {
+        let dims = self.dims.ok_or(VcalError::InvalidDimensions { found: 0 })?;
+        if dims == 0 {
+            return Err(VcalError::InvalidDimensions { found: 0 });
+        }
+
+        Ok(Hnsw {
             dims,
-            m:  self.m,
+            m: self.m,
             ef: self.ef_search,
             efc: self.ef_construction,
             metric: self.metric,
             graph: Graph::new(),
-        }
+        })
     }
 }
 

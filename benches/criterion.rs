@@ -5,8 +5,8 @@
 //! cargo bench
 //! ```
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use vcal_core::{HnswBuilder, Cosine};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use vcal_core::{Cosine, HnswBuilder};
 
 const DIMS: usize = 128;
 const NUM_VECS: usize = 10_000;
@@ -18,9 +18,9 @@ fn build_index() -> vcal_core::Hnsw<Cosine> {
         .m(16)
         .ef_construction(200)
         .ef_search(50)
-        .build();
+        .build()
+        .unwrap();
 
-    // Deterministic vectors (i as f32) to keep distance monotonic.
     for i in 0..NUM_VECS {
         h.insert(vec![i as f32; DIMS], i as u64).unwrap();
     }
@@ -35,10 +35,7 @@ fn bench_knn(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
 
     group.bench_function(BenchmarkId::from_parameter(K), |b| {
-        b.iter(|| {
-            // We clone the query slice to prevent compiler cheating
-            h.search(&query, K)
-        })
+        b.iter(|| black_box(h.search(black_box(&query), black_box(K)).unwrap()))
     });
 
     group.finish();

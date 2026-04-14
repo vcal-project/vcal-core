@@ -1,22 +1,18 @@
-//! VCAL-core — minimal in-process HNSW vector index.
-//!
-//! * Library MSRV 1.56  (edition 2021)
-//! * Dev-dependencies/benches may require a newer stable toolchain.
-//! * Optional AVX2 fast-path behind `--features simd`  
-//! * Optional snapshot via `serde` feature
-//!
 //! ## Quick-start
 //! ```rust
 //! use vcal_core::{HnswBuilder, Cosine};
 //!
 //! let mut h = HnswBuilder::<Cosine>::default()
 //!     .dims(16)
-//!     .build();
+//!     .build()
+//!     .unwrap();
 //!
 //! h.insert(vec![1.0; 16], 42).unwrap();
-//! let hits = h.search(&vec![1.0; 16], 1).unwrap();
+//!
+//! let hits = h.search(&[1.0; 16], 1).unwrap();
 //! assert_eq!(hits[0].0, 42);
 //! ```
+
 #![deny(unsafe_code)]
 #![deny(unsafe_op_in_unsafe_fn)]
 
@@ -45,12 +41,12 @@ pub type SearchHit = (ExternalId, f32);
 
 /// Main index structure.
 pub struct Hnsw<M: math::Metric = math::Cosine> {
-    pub(crate) dims:   usize,
-    pub(crate) m:      usize,
-    pub(crate) ef:     usize,
-    pub(crate) efc:    usize,
+    pub(crate) dims: usize,
+    pub(crate) m: usize,
+    pub(crate) ef: usize,
+    pub(crate) efc: usize,
     pub(crate) metric: M,
-    pub(crate) graph:  graph::Graph,
+    pub(crate) graph: graph::Graph,
 }
 
 impl<M: math::Metric> Hnsw<M> {
@@ -63,7 +59,10 @@ impl<M: math::Metric> Hnsw<M> {
             return Err(VcalError::EmptyIndex);
         }
         if query.len() != self.dims {
-            return Err(VcalError::DimensionMismatch { expected: self.dims, found: query.len() });
+            return Err(VcalError::DimensionMismatch {
+                expected: self.dims,
+                found: query.len(),
+            });
         }
         // Ensure ef is sane: at least k and >=1
         let ef_eff = ef.max(k.max(1));
@@ -72,7 +71,9 @@ impl<M: math::Metric> Hnsw<M> {
 
         // Feed LRU without a write-lock (same as `search`)
         let mut ids: Vec<u64> = Vec::with_capacity(hits.len());
-        for (eid, _dist) in &hits { ids.push(*eid); }
+        for (eid, _dist) in &hits {
+            ids.push(*eid);
+        }
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -83,19 +84,27 @@ impl<M: math::Metric> Hnsw<M> {
     }
 
     /// Return the embedding dimensionality this index was built for.
-    #[inline] pub fn dims(&self) -> usize { self.dims }
+    #[inline]
+    pub fn dims(&self) -> usize {
+        self.dims
+    }
 
     /// Set query-time ef
     #[inline]
-    pub fn set_ef(&mut self, ef: usize) { self.ef = ef.max(1); }
+    pub fn set_ef(&mut self, ef: usize) {
+        self.ef = ef.max(1);
+    }
 
     /// (optional) expose common params for tooling
-    #[inline] pub fn params(&self) -> (usize, usize) {
+    #[inline]
+    pub fn params(&self) -> (usize, usize) {
         (self.m, self.ef)
     }
 
     #[inline]
-    pub fn set_ef_construction(&mut self, efc: usize) { self.efc = efc.max(1); }
+    pub fn set_ef_construction(&mut self, efc: usize) {
+        self.efc = efc.max(1);
+    }
 
     /// Insert a vector with an external identifier.
     pub fn insert(&mut self, vec: Vec<f32>, ext_id: ExternalId) -> Result<()> {
@@ -110,7 +119,9 @@ impl<M: math::Metric> Hnsw<M> {
     }
 
     #[inline]
-    pub fn params_full(&self) -> (usize, usize, usize) { (self.m, self.ef, self.efc) }
+    pub fn params_full(&self) -> (usize, usize, usize) {
+        (self.m, self.ef, self.efc)
+    }
 
     /// k-NN search using the index’s default `ef`.
     #[inline]
@@ -132,7 +143,8 @@ impl<M: math::Metric> Hnsw<M> {
     ) -> (usize, usize) {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default().as_secs();
+            .unwrap_or_default()
+            .as_secs();
         self.graph.evict_lru_until(max_vecs, max_bytes, now)
     }
 
@@ -160,7 +172,9 @@ impl<M: math::Metric> Hnsw<M> {
 
     /// Convenience: number of active vectors.
     #[inline]
-    pub fn len(&self) -> usize { self.stats().0 }
+    pub fn len(&self) -> usize {
+        self.stats().0
+    }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -169,16 +183,18 @@ impl<M: math::Metric> Hnsw<M> {
 
     /// Convenience: approximate total bytes of active nodes.
     #[inline]
-    pub fn total_bytes(&self) -> usize { self.stats().1 }
-
+    pub fn total_bytes(&self) -> usize {
+        self.stats().1
+    }
 
     // ------------------------------------------------------------------
     // Snapshot helpers (enabled with `serde`)
     // ------------------------------------------------------------------
+
     #[cfg(feature = "serde")]
     /// Serialise index to bytes (`serde_json` by default).
     /// Note: `vcal_core::to_bytes(&hnsw)` is also available as a free function.
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Result<Vec<u8>> {
         serialize::to_bytes(self)
     }
 
@@ -189,19 +205,7 @@ impl<M: math::Metric> Hnsw<M> {
     where
         M: Default,
     {
-        // IMPORTANT: pass the metric type M, not Self.
-        let mut h: Self = serialize::from_slice::<M>(bytes)?;
-
-        // Auto-repair minor inconsistencies in the graph after load.
-        let (edges, nodes) = h.graph.sanitize();
-        if edges > 0 || nodes > 0 {
-            // Use `tracing` here; remember to add `tracing = "0.1"` in Cargo.toml of this crate.
-            tracing::warn!(
-                "Sanitized snapshot: dropped {} edges, fixed {} nodes",
-                edges, nodes
-            );
-        }
-        Ok(h)
+        serialize::from_slice::<M>(bytes)
     }
 }
 
@@ -214,35 +218,47 @@ mod tests {
 
     #[test]
     fn smoke_insert_search() {
-        let mut h = HnswBuilder::<Cosine>::default().dims(16).build();
+        let mut h = HnswBuilder::<Cosine>::default().dims(16).build().unwrap();
         h.insert(vec![1.0; 16], 1).unwrap();
-        let res = h.search(&vec![1.0; 16], 1).unwrap();
+        let res = h.search(&[1.0; 16], 1).unwrap();
         assert_eq!(res[0].0, 1);
-    }
-
-    #[cfg(feature = "serde")]
-    #[test]
-    fn snapshot_roundtrip() {
-        let mut h = HnswBuilder::<Cosine>::default().dims(8).build();
-        h.insert(vec![0.5; 8], 7).unwrap();
-        let bytes = h.to_bytes();
-        let h2 = Hnsw::<Cosine>::from_slice(&bytes).unwrap();
-        assert_eq!(h2.search(&vec![0.5; 8], 1).unwrap()[0].0, 7);
     }
 
     #[test]
     fn search_with_ef_compiles_and_runs() {
-        let mut h = HnswBuilder::<Cosine>::default().dims(8).ef_search(8).build();
+        let mut h = HnswBuilder::<Cosine>::default()
+            .dims(8)
+            .ef_search(8)
+            .build()
+            .unwrap();
         h.insert(vec![1.0; 8], 1).unwrap();
-        let hits = h.search_with_ef(&vec![1.0; 8], 1, 32).unwrap();
+        let hits = h.search_with_ef(&[1.0; 8], 1, 32).unwrap();
         assert_eq!(hits[0].0, 1);
     }
 
     #[test]
     fn search_k_zero_returns_empty() {
-        let mut h = HnswBuilder::<Cosine>::default().dims(4).build();
-        h.insert(vec![1.0;4], 1).unwrap();
-        let hits = h.search_with_ef(&[1.0;4], 0, 8).unwrap();
+        let mut h = HnswBuilder::<Cosine>::default().dims(4).build().unwrap();
+        h.insert(vec![1.0; 4], 1).unwrap();
+        let hits = h.search_with_ef(&[1.0; 4], 0, 8).unwrap();
         assert!(hits.is_empty());
+    }
+
+    #[test]
+    fn builder_requires_dims() {
+        match HnswBuilder::<Cosine>::default().build() {
+            Err(VcalError::InvalidDimensions { found }) => assert_eq!(found, 0),
+            Err(other) => panic!("unexpected error: {}", other),
+            Ok(_) => panic!("expected InvalidDimensions error"),
+        }
+    }
+
+    #[test]
+    fn builder_rejects_zero_dims() {
+        match HnswBuilder::<Cosine>::default().dims(0).build() {
+            Err(VcalError::InvalidDimensions { found }) => assert_eq!(found, 0),
+            Err(other) => panic!("unexpected error: {}", other),
+            Ok(_) => panic!("expected InvalidDimensions error"),
+        }
     }
 }

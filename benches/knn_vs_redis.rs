@@ -2,8 +2,8 @@
 //! Note: Redis comparison is a stub; enable feature `redis_bench` and add code if you need it.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use vcal_core::{HnswBuilder, Cosine};
 use std::time::Instant;
+use vcal_core::{Cosine, HnswBuilder};
 
 const DIMS: usize = 128;
 const NUM_VECS: usize = 10_000;
@@ -14,11 +14,16 @@ const K: usize = 10;
 fn build_vcal() -> vcal_core::Hnsw<Cosine> {
     let mut h = HnswBuilder::<Cosine>::default()
         .dims(DIMS)
-        .build();
+        .m(16)
+        .ef_construction(200)
+        .ef_search(50)
+        .build()
+        .unwrap();
 
     for i in 0..NUM_VECS {
         h.insert(vec![i as f32; DIMS], i as u64).unwrap();
     }
+
     h
 }
 

@@ -4,6 +4,74 @@ All notable changes to **vcal-core** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-04-14
+
+### Added
+- **Builder validation hardening**
+  - `HnswBuilder::build()` now returns `Result<Hnsw<_>>`
+  - Explicit validation for required parameters (e.g., `dims > 0`)
+  - New error variant: `InvalidDimensions { found }`
+
+- **Improved error surface**
+  - Added `InvalidParameter(&'static str)` for future parameter validation
+  - Added `CorruptSnapshot(String)` (under `serde` feature)
+  - Consistent error handling across builder, snapshot, and search paths
+
+- **Snapshot safety improvements**
+  - `to_bytes()` now returns `Result<Vec<u8>>` (no panics)
+  - Unified snapshot load path with consistent validation and sanitization
+  - Added tests for invalid JSON and malformed snapshot handling
+
+---
+
+### Changed
+- **Removed unsafe feature paths**
+  - SIMD support deferred to future release
+  - Crate is now fully safe (`#![deny(unsafe_code)]`) across all features
+
+- **Corrected HNSW level generation**
+  - Fixed geometric distribution for layer assignment (`p = 1 / M`)
+  - Prevents excessive upper-layer growth and improves search behavior
+
+- **Snapshot model simplified**
+  - Removed paired snapshot (`.A / .B`) mechanism
+  - Persistence is now explicit byte-based (`to_bytes` / `from_slice`)
+  - Storage and durability responsibility moved to higher-level systems (e.g., VCAL Server)
+
+- **API consistency improvements**
+  - Unified snapshot loading behavior across all entry points
+  - Improved internal validation ordering (fail fast before mutation)
+
+---
+
+### Fixed
+- Eliminated potential infinite loop when `M < 2` in level generation
+- Fixed inconsistent snapshot load behavior between public APIs
+- Resolved panic-prone serialization path (`expect()` removed)
+- Cleaned up benchmark and test inconsistencies after API changes
+
+---
+
+### Removed
+- Paired snapshot persistence (`Index::save`, `.index.A/.index.B`)
+- File-based snapshot API (`save/load`)
+- SIMD feature flag (`simd`)
+- Legacy `Index` abstraction (fully migrated to `Hnsw`)
+
+---
+
+### Migration Notes
+- **Builder now returns `Result`:**
+
+```rust
+let idx = HnswBuilder::<Cosine>::default()
+    .dims(128)
+    .build()
+    .unwrap();
+```
+
+---
+
 ## [0.1.1] - 2025-10-10
 ### Added
 - **Paired snapshot mechanism** to ensure atomic persistence:

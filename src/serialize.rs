@@ -1,9 +1,3 @@
-//! (feature = "serde") snapshot helpers for VCAL-core.
-//!
-//! We **do not** serialize a `level` field. Instead, the node's level is
-//! **derived** as `links.len() - 1`. This avoids keeping a separate field and
-//! removes warnings about unused `level`s in the core structs.
-
 use crate::{
     errors::{Result, VcalError},
     graph::Graph,
@@ -12,6 +6,12 @@ use crate::{
     Hnsw,
 };
 use std::sync::atomic::Ordering;
+
+const SNAPSHOT_VERSION: u32 = 1;
+
+fn default_snapshot_version() -> u32 {
+    SNAPSHOT_VERSION
+}
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SerNode {
@@ -29,6 +29,8 @@ struct SerGraph {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct SerIndex {
+    #[serde(default = "default_snapshot_version")]
+    version: u32,
     dims: usize,
     m: usize,
     ef: usize,
@@ -37,7 +39,7 @@ struct SerIndex {
     graph: SerGraph,
 }
 
-pub fn to_bytes<M: Metric>(idx: &Hnsw<M>) -> Vec<u8> {
+pub fn to_bytes<M: Metric>(idx: &Hnsw<M>) -> Result<Vec<u8>> {
     let nodes: Vec<SerNode> = idx
         .graph
         .nodes
@@ -52,6 +54,7 @@ pub fn to_bytes<M: Metric>(idx: &Hnsw<M>) -> Vec<u8> {
         .collect();
 
     let ser = SerIndex {
+        version: SNAPSHOT_VERSION,
         dims: idx.dims,
         m: idx.m,
         ef: idx.ef,
@@ -59,16 +62,26 @@ pub fn to_bytes<M: Metric>(idx: &Hnsw<M>) -> Vec<u8> {
         graph: SerGraph { nodes },
     };
 
-    serde_json::to_vec(&ser).expect("serialize snapshot")
+    serde_json::to_vec(&ser).map_err(|e| VcalError::Serialize(e.to_string()))
 }
 
 pub fn from_slice<M: Metric + Default>(bytes: &[u8]) -> Result<Hnsw<M>> {
     let snap: SerIndex =
         serde_json::from_slice(bytes).map_err(|e| VcalError::Serialize(e.to_string()))?;
+
+    if snap.version != SNAPSHOT_VERSION {
+        return Err(VcalError::CorruptSnapshot(format!(
+            "unsupported snapshot version: {}",
+            snap.version
+        )));
+    }
+
     let efc = snap.efc.unwrap_or_else(|| snap.ef.max(1));
-    let ef  = snap.ef.max(1);
+    let ef = snap.ef.max(1);
+
     let mut g = Graph::new();
     let mut max_level = 0usize;
+
     for sn in &snap.graph.nodes {
         if sn.vec.len() != snap.dims {
             return Err(VcalError::DimensionMismatch {
@@ -81,6 +94,7 @@ pub fn from_slice<M: Metric + Default>(bytes: &[u8]) -> Result<Hnsw<M>> {
             max_level = level;
         }
     }
+
     while g.levels.len() <= max_level {
         g.levels.push(Vec::new());
     }
@@ -90,7 +104,7 @@ pub fn from_slice<M: Metric + Default>(bytes: &[u8]) -> Result<Hnsw<M>> {
         let node_id = g.nodes.len() as NodeId;
 
         let mut node = Node::new(sn.ext_id, level, sn.vec);
-        node.links = sn.links; // restore per-level adjacency
+        node.links = sn.links;
         if let Some(ts) = sn.last_hit {
             node.last_hit.store(ts, Ordering::Relaxed);
         }
@@ -113,12 +127,62 @@ pub fn from_slice<M: Metric + Default>(bytes: &[u8]) -> Result<Hnsw<M>> {
         None
     };
 
-    Ok(Hnsw {
+    let mut h = Hnsw {
         dims: snap.dims,
         m: snap.m,
         ef,
         efc,
         metric: M::default(),
         graph: g,
-    })
+    };
+
+    let _ = h.graph.sanitize();
+    Ok(h)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Cosine, HnswBuilder};
+
+    #[test]
+    fn snapshot_roundtrip() {
+        let mut h = HnswBuilder::<Cosine>::default().dims(8).build().unwrap();
+        h.insert(vec![0.5; 8], 7).unwrap();
+
+        let bytes = h.to_bytes().unwrap();
+        let h2 = Hnsw::<Cosine>::from_slice(&bytes).unwrap();
+
+        assert_eq!(h2.search(&[0.5; 8], 1).unwrap()[0].0, 7);
+    }
+
+    #[test]
+    fn snapshot_bad_json_returns_error() {
+        let err = Hnsw::<Cosine>::from_slice(br#"{"not":"valid enough"}"#);
+
+        match err {
+            Err(VcalError::Serialize(_)) => {}
+            Err(other) => panic!("unexpected error: {}", other),
+            Ok(_) => panic!("expected error"),
+        }
+    }
+
+    #[test]
+    fn snapshot_unknown_version_rejected() {
+        let bytes = br#"{
+            "version": 999,
+            "dims": 8,
+            "m": 16,
+            "ef": 32,
+            "graph": {"nodes": []}
+        }"#;
+
+        let err = Hnsw::<Cosine>::from_slice(bytes);
+
+        match err {
+            Err(VcalError::CorruptSnapshot(_)) => {}
+            Err(other) => panic!("unexpected error: {}", other),
+            Ok(_) => panic!("expected error"),
+        }
+    }
 }

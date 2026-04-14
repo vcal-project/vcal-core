@@ -6,8 +6,8 @@ use crate::{
     rand_level::draw_level,
 };
 
-use smallvec::SmallVec;
 use crate::node::MAX_LINKS_PER_LVL;
+use smallvec::SmallVec;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -41,28 +41,26 @@ impl Graph {
     /// Safe accessor: neighbors of `nid` on `layer` (empty slice if absent).
     #[inline]
     fn neighbors(&self, nid: NodeId, layer: usize) -> &[NodeId] {
-        if nid >= self.nodes.len() { return &[]; }
+        if nid >= self.nodes.len() {
+            return &[];
+        }
         let links = &self.nodes[nid].links;
-        if layer >= links.len() { return &[]; }
+        if layer >= links.len() {
+            return &[];
+        }
         &links[layer]
     }
 
     /// Insert a vector + external id.
-    pub fn add<M: Metric>(
-        &mut self,
-        vec: Vec<f32>,
-        ext_id: u64,
-        metric: &M,
-        m: usize,
-        ef: usize,
-    ) {
+    pub fn add<M: Metric>(&mut self, vec: Vec<f32>, ext_id: u64, metric: &M, m: usize, ef: usize) {
+        debug_assert!(m >= 2, "M must be ≥ 2");
         // If the external id already exists, treat as upsert: delete old node first.
         if let Some(_old) = self.by_ext.get(&ext_id).copied() {
             // Best-effort idempotent delete; ignore result.
             let _ = self.delete(ext_id);
         }
 
-        let lvl = draw_level(m as f64);
+        let lvl = draw_level(m);
         let node_id = self.nodes.len() as NodeId;
 
         // Use the existing tower for wiring; update top only after linking.
@@ -124,8 +122,16 @@ impl Graph {
     }
 
     /// Public k-NN search (returns `(ext_id, dist)`).
-    pub fn knn<M: Metric>(&self, query: &[f32], k: usize, metric: &M, ef: usize) -> Vec<(u64, f32)> {
-        if self.nodes.is_empty() || k == 0 { return Vec::new(); }
+    pub fn knn<M: Metric>(
+        &self,
+        query: &[f32],
+        k: usize,
+        metric: &M,
+        ef: usize,
+    ) -> Vec<(u64, f32)> {
+        if self.nodes.is_empty() || k == 0 {
+            return Vec::new();
+        }
 
         // Don’t trust self.entry blindly.
         let mut ep = match self.entry {
@@ -143,53 +149,93 @@ impl Graph {
         let mut cand = self.ef_search_idx(ep, query, ef.max(k), 0, metric);
         cand.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         cand.truncate(k);
-        cand.into_iter().map(|(nid, dist)| (self.nodes[nid].ext_id, dist)).collect()
+        cand.into_iter()
+            .map(|(nid, dist)| (self.nodes[nid].ext_id, dist))
+            .collect()
     }
 
     /* ---------------- internal helpers ----------------------------------- */
 
-    fn greedy<M: Metric>(&self, mut curr: NodeId, target: NodeId, layer: usize, metric: &M) -> NodeId {
-        if !self.is_valid_nid(curr) || self.neighbors(curr, layer).is_empty() { return curr; }
+    fn greedy<M: Metric>(
+        &self,
+        mut curr: NodeId,
+        target: NodeId,
+        layer: usize,
+        metric: &M,
+    ) -> NodeId {
+        if !self.is_valid_nid(curr) || self.neighbors(curr, layer).is_empty() {
+            return curr;
+        }
         let tv = &self.nodes[target].vec;
         loop {
             let mut improved = false;
             for &nb in self.neighbors(curr, layer) {
-                if !self.is_valid_nid(nb) { continue; }
-                if metric.distance(&self.nodes[nb].vec, tv) < metric.distance(&self.nodes[curr].vec, tv) {
-                    curr = nb; improved = true;
+                if !self.is_valid_nid(nb) {
+                    continue;
+                }
+                if metric.distance(&self.nodes[nb].vec, tv)
+                    < metric.distance(&self.nodes[curr].vec, tv)
+                {
+                    curr = nb;
+                    improved = true;
                 }
             }
-            if !improved { break; }
+            if !improved {
+                break;
+            }
         }
         curr
     }
 
-    fn greedy_idx<M: Metric>(&self, mut curr: NodeId, q: &[f32], layer: usize, metric: &M) -> NodeId {
-        if !self.is_valid_nid(curr) || self.neighbors(curr, layer).is_empty() { return curr; }
+    fn greedy_idx<M: Metric>(
+        &self,
+        mut curr: NodeId,
+        q: &[f32],
+        layer: usize,
+        metric: &M,
+    ) -> NodeId {
+        if !self.is_valid_nid(curr) || self.neighbors(curr, layer).is_empty() {
+            return curr;
+        }
         loop {
             let mut improved = false;
             for &nb in self.neighbors(curr, layer) {
-                if !self.is_valid_nid(nb) { continue; }
-                if metric.distance(&self.nodes[nb].vec, q) < metric.distance(&self.nodes[curr].vec, q) {
-                    curr = nb; improved = true;
+                if !self.is_valid_nid(nb) {
+                    continue;
+                }
+                if metric.distance(&self.nodes[nb].vec, q)
+                    < metric.distance(&self.nodes[curr].vec, q)
+                {
+                    curr = nb;
+                    improved = true;
                 }
             }
-            if !improved { break; }
+            if !improved {
+                break;
+            }
         }
         curr
     }
 
     /// ef-search core — returns Vec of (NodeId, distance).
     fn ef_search_idx<M: Metric>(
-        &self, entry: NodeId, query: &[f32], ef: usize, layer: usize, metric: &M,
+        &self,
+        entry: NodeId,
+        query: &[f32],
+        ef: usize,
+        layer: usize,
+        metric: &M,
     ) -> Vec<(NodeId, f32)> {
         // Bail out early if entry is invalid/deleted.
-        if !self.is_valid_nid(entry) { return Vec::new(); }
+        if !self.is_valid_nid(entry) {
+            return Vec::new();
+        }
 
         let mut visited = std::collections::HashSet::with_capacity(ef * 2);
-        use std::cmp::Reverse;
         use ordered_float::OrderedFloat;
-        let mut top: std::collections::BinaryHeap<(OrderedFloat<f32>, NodeId)> = std::collections::BinaryHeap::new();
+        use std::cmp::Reverse;
+        let mut top: std::collections::BinaryHeap<(OrderedFloat<f32>, NodeId)> =
+            std::collections::BinaryHeap::new();
         let mut to_visit: std::collections::BinaryHeap<(Reverse<OrderedFloat<f32>>, NodeId)> =
             std::collections::BinaryHeap::new();
 
@@ -200,21 +246,34 @@ impl Graph {
 
         while let Some((Reverse(_), curr)) = to_visit.pop() {
             let neighs = self.neighbors(curr, layer);
-            if neighs.is_empty() { continue; }
-            let worst = top.peek().map(|x| x.0.into_inner()).unwrap_or(f32::INFINITY);
+            if neighs.is_empty() {
+                continue;
+            }
+            let worst = top
+                .peek()
+                .map(|x| x.0.into_inner())
+                .unwrap_or(f32::INFINITY);
 
             for &nb in neighs {
-                if !self.is_valid_nid(nb) { continue; } // <==== extra guard
-                if !visited.insert(nb) { continue; }
+                if !self.is_valid_nid(nb) {
+                    continue;
+                } // <==== extra guard
+                if !visited.insert(nb) {
+                    continue;
+                }
                 let d = metric.distance(&self.nodes[nb].vec, query);
                 if top.len() < ef || d < worst {
                     to_visit.push((Reverse(OrderedFloat(d)), nb));
                     top.push((OrderedFloat(d), nb));
-                    if top.len() > ef { top.pop(); }
+                    if top.len() > ef {
+                        top.pop();
+                    }
                 }
             }
         }
-        top.into_iter().map(|(od, nid)| (nid, od.into_inner())).collect()
+        top.into_iter()
+            .map(|(od, nid)| (nid, od.into_inner()))
+            .collect()
     }
 
     /// Check whether an ext_id exists.
@@ -233,13 +292,19 @@ impl Graph {
         // --- neighbor selection (greedy HNSW heuristic) ---
         let mut selected = SmallVec::<[NodeId; MAX_LINKS_PER_LVL]>::new();
         for &c in neigh {
-            if c == nid { continue; }
-            if selected.len() >= m { break; }
+            if c == nid {
+                continue;
+            }
+            if selected.len() >= m {
+                break;
+            }
             let ok = selected.iter().all(|&s| {
                 metric.distance(&self.nodes[c].vec, &self.nodes[nid].vec)
                     < metric.distance(&self.nodes[c].vec, &self.nodes[s].vec)
             });
-            if ok { selected.push(c); }
+            if ok {
+                selected.push(c);
+            }
         }
 
         // Pre-filter: only keep valid neighbors, then do all mutations afterwards.
@@ -304,13 +369,7 @@ impl Graph {
     }
 
     /// Greedy HNSW degree pruning: keep up to m neighbors on `layer`.
-    fn prune_degree_hnsw<M: Metric>(
-        &mut self,
-        nid: NodeId,
-        layer: usize,
-        m: usize,
-        metric: &M,
-    ) {
+    fn prune_degree_hnsw<M: Metric>(&mut self, nid: NodeId, layer: usize, m: usize, metric: &M) {
         let adj_taken = std::mem::take(&mut self.nodes[nid].links[layer]);
         if adj_taken.len() <= m {
             self.nodes[nid].links[layer] = adj_taken;
@@ -329,12 +388,16 @@ impl Graph {
         // Greedy keep ≤ m
         let mut keep: Vec<NodeId> = Vec::with_capacity(m);
         for (c, _) in cand {
-            if keep.len() >= m { break; }
+            if keep.len() >= m {
+                break;
+            }
             let ok = keep.iter().all(|&s| {
                 metric.distance(&self.nodes[c].vec, &self.nodes[nid].vec)
                     < metric.distance(&self.nodes[c].vec, &self.nodes[s].vec)
             });
-            if ok { keep.push(c); }
+            if ok {
+                keep.push(c);
+            }
         }
 
         self.nodes[nid].links[layer] = keep;
@@ -345,7 +408,7 @@ impl Graph {
     #[allow(dead_code)]
     pub fn sanitize(&mut self) -> (usize, usize) {
         let mut edges_dropped = 0usize;
-        let mut nodes_fixed   = 0usize;
+        let mut nodes_fixed = 0usize;
 
         let nlen = self.nodes.len();
         // ✅ Precompute deletion flags to avoid immutably borrowing self.nodes while iter_mut is active
@@ -375,7 +438,8 @@ impl Graph {
         }
 
         // Rebuild level registry
-        self.max_level = self.nodes
+        self.max_level = self
+            .nodes
             .iter()
             .map(|n| n.links.len().saturating_sub(1))
             .max()
@@ -427,7 +491,9 @@ impl Graph {
     fn pick_entry(&self) -> Option<NodeId> {
         for lvl in (0..self.levels.len()).rev() {
             for &nid in &self.levels[lvl] {
-                if self.is_valid_nid(nid) { return Some(nid); }
+                if self.is_valid_nid(nid) {
+                    return Some(nid);
+                }
             }
         }
         None
@@ -437,9 +503,15 @@ impl Graph {
 impl Graph {
     /// Idempotent delete by external id. Returns true if something was removed.
     pub fn delete(&mut self, ext_id: u64) -> bool {
-        let Some(nid) = self.by_ext.remove(&ext_id) else { return false; };
-        if nid >= self.nodes.len() { return false; }
-        if self.nodes[nid].is_deleted() { return false; }
+        let Some(nid) = self.by_ext.remove(&ext_id) else {
+            return false;
+        };
+        if nid >= self.nodes.len() {
+            return false;
+        }
+        if self.nodes[nid].is_deleted() {
+            return false;
+        }
 
         // We'll accumulate the net byte delta for neighbors + node and then
         // apply it once to self.total_bytes (can be negative).
@@ -458,9 +530,15 @@ impl Graph {
                 std::mem::take(&mut node.links[l])
             };
             for nb in neigh {
-                if nb >= self.nodes.len() { continue; }
-                if self.nodes[nb].is_deleted() { continue; }
-                if l >= self.nodes[nb].links.len() { continue; }
+                if nb >= self.nodes.len() {
+                    continue;
+                }
+                if self.nodes[nb].is_deleted() {
+                    continue;
+                }
+                if l >= self.nodes[nb].links.len() {
+                    continue;
+                }
                 // neighbor bytes before
                 let nb_bytes_before = { self.nodes[nb].recompute_bytes() };
                 {
@@ -484,7 +562,7 @@ impl Graph {
             let before = self.nodes[nid].recompute_bytes();
             {
                 let node = &mut self.nodes[nid];
-                node.vec.clear();         // release vector contents
+                node.vec.clear(); // release vector contents
                 node.vec.shrink_to_fit(); // return capacity
                 node.deleted
                     .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -504,7 +582,11 @@ impl Graph {
 
         // Maintain entry: if we deleted the entry, pick a fallback if any.
         if self.entry == Some(nid) {
-            self.entry = self.levels.iter().rev().find_map(|lvl| lvl.first().copied());
+            self.entry = self
+                .levels
+                .iter()
+                .rev()
+                .find_map(|lvl| lvl.first().copied());
         }
 
         // Apply accumulated delta to total_bytes.
@@ -540,11 +622,17 @@ impl Graph {
     pub fn evict_ttl(&mut self, ttl_secs: u64, now_unix: u64) -> (usize, usize) {
         let mut evicted = 0usize;
         for nid in 0..self.nodes.len() {
-            if self.nodes[nid].is_deleted() { continue; }
-            let ts = self.nodes[nid].last_hit.load(std::sync::atomic::Ordering::Relaxed);
+            if self.nodes[nid].is_deleted() {
+                continue;
+            }
+            let ts = self.nodes[nid]
+                .last_hit
+                .load(std::sync::atomic::Ordering::Relaxed);
             if now_unix.saturating_sub(ts) > ttl_secs {
                 let ext = self.nodes[nid].ext_id;
-                if self.delete(ext) { evicted += 1; }
+                if self.delete(ext) {
+                    evicted += 1;
+                }
             }
         }
         self.repair_after_mass_deletes();
@@ -559,15 +647,26 @@ impl Graph {
         _now_unix: u64,
     ) -> (usize, usize) {
         let need = |active: usize, bytes: usize| {
-            if let Some(mv) = max_vecs { if active > mv { return true; } }
-            if let Some(mb) = max_bytes { if bytes > mb { return true; } }
+            if let Some(mv) = max_vecs {
+                if active > mv {
+                    return true;
+                }
+            }
+            if let Some(mb) = max_bytes {
+                if bytes > mb {
+                    return true;
+                }
+            }
             false
         };
 
         let (mut active, mut bytes) = self.stats();
-        if !need(active, bytes) { return (0, 0); }
+        if !need(active, bytes) {
+            return (0, 0);
+        }
 
-        let mut heap: std::collections::BinaryHeap<std::cmp::Reverse<(u64, NodeId)>> = std::collections::BinaryHeap::new();
+        let mut heap: std::collections::BinaryHeap<std::cmp::Reverse<(u64, NodeId)>> =
+            std::collections::BinaryHeap::new();
         for (nid, n) in self.nodes.iter().enumerate() {
             if !n.is_deleted() {
                 let ts = n.last_hit.load(std::sync::atomic::Ordering::Relaxed);
@@ -577,8 +676,12 @@ impl Graph {
 
         let mut evicted = 0usize;
         while let Some(std::cmp::Reverse((_ts, nid))) = heap.pop() {
-            if !need(active, bytes) { break; }
-            if nid >= self.nodes.len() { continue; }
+            if !need(active, bytes) {
+                break;
+            }
+            if nid >= self.nodes.len() {
+                continue;
+            }
             let ext = self.nodes[nid].ext_id;
             if self.delete(ext) {
                 (active, bytes) = self.stats();
