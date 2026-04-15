@@ -1,7 +1,6 @@
 # ---- Rust / Cargo ----
 /target/
-**/*.rs.bk
-**/target/
+*.rs.bk
 *.rlib
 *.a
 *.o
@@ -11,9 +10,9 @@
 *.pdb
 
 # Rust / Cargo noise
-Cargo.lock        # (keep if this is a binary repo; ignore if this is a library crate)
+Cargo.lock
 
-# ---- Editor/OS ----
+# ---- Editor / OS ----
 .DS_Store
 .idea/
 .vscode/
@@ -21,13 +20,9 @@ Cargo.lock        # (keep if this is a binary repo; ignore if this is a library 
 *.swo
 Thumbs.db
 
-# ---- Bench outputs / local artifacts ----
+# ---- Bench / local artifacts ----
 /benches/target/
 /bench-results/
 
-*.swp
-.idea/
-.vscode/
-
-# ---- Redundant files ----
+# ---- Project-specific ----
 INSTALL.md

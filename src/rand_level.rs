@@ -23,9 +23,8 @@ pub fn draw_level(m: usize) -> usize {
 
     let p = 1.0 / m as f64;
     let mut lvl = 0usize;
-    let mut rng = rand::thread_rng();
-
-    while rng.gen::<f64>() < p {
+    let mut rng = rand::rng();
+    while rng.random::<f64>() < p {
         lvl += 1;
     }
 
