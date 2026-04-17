@@ -1,10 +1,16 @@
 # Changelog
-All notable changes to **vcal-core** will be documented in this file.
+All notable changes to **vcal-core** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+
+## [Unreleased]
+<!-- Changes here are not yet released -->
+
+### Added
+- _Nothing yet_
 
 ## [0.1.3] - 2026-04-15
 
@@ -176,5 +182,9 @@ let idx = HnswBuilder::<Cosine>::default()
 
 ---
 
-[Unreleased]: https://github.com/vcal-project/vcal-core/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/vcal-project/vcal-core/compare/v0.1.0...v0.2.0
+[Unreleased]: https://github.com/vcal-project/vcal-core/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/vcal-project/vcal-core/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/vcal-project/vcal-core/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/vcal-project/vcal-core/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/vcal-project/vcal-core/releases/tag/v0.1.0
+[0.0.1]: https://github.com/vcal-project/vcal-core/releases/tag/v0.0.1
