@@ -4,6 +4,24 @@ All notable changes to **vcal-core** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
+## [0.1.3] - 2026-04-15
+
+### Security
+- Updated `rand` from `0.8.x` to `0.9.x` to resolve transitive RustSec advisory affecting earlier versions
+
+### Changed
+- **rand API modernization**
+  - Replaced deprecated `rand::thread_rng()` with `rand::rng()`
+  - Replaced `rng.gen::<T>()` with `rng.random::<T>()`
+
+### Notes
+- This release is a dependency and API cleanup update with no functional changes to core algorithms
+- Addresses RustSec advisory impacting earlier `rand` versions in the dependency tree
+
+---
+
 ## [0.1.2] - 2026-04-14
 
 ### Added
