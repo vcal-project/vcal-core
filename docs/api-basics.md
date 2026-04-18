@@ -10,8 +10,11 @@ The core types you’ll use most:
 Create, configure, and query the vector index.
 
 ```rust
-let dims = 768;
-let mut idx = Index::new(dims, Metric::Cosine)?;
+use vcal_core::{HnswBuilder, Cosine};
+
+let mut idx = HnswBuilder::<Cosine>::default()
+    .dims(768)
+    .build()?;
 ```
 
 ### Key methods (common subset):
@@ -25,20 +28,27 @@ let mut idx = Index::new(dims, Metric::Cosine)?;
 - **contains(&str)** – check by id
 
 ### `InsertItem`
-``` rust
-InsertItem::new("id", embedding)            // bare minimum
-InsertItem::with_ttl("id", embedding, secs) // optional TTL on item
+```rust
+InsertItem::new("id", embedding)             // bare minimum
+InsertItem::with_ttl("id", embedding, secs) // optional TTL per item
 ```
 
-### Similarity `Metric`
+### Similarity metrics
 
-- 'Metric::Cosine'
-- 'Metric::Dot'
+- 'Cosine'
+- 'Dot'
 
-> Choose Cosine for typical embedding models; Dot if your pipeline expects it.
+> Use Cosine for most embedding models; use Dot if your pipeline requires it.
 
 ### Errors
 
-Most methods return `VcalResult<T> = Result<T, VcalError>`.
+Most methods return:
 
-Errors cover invalid dims, missing ids, or internal index issues.
+`type VcalResult<T> = Result<T, VcalError>;`
+
+Errors cover:
+- invalid dimensions
+- missing or duplicate IDs
+- snapshot or internal index issues
+
+> Note: Prior versions exposed an Index type. This has been replaced by Hnsw with a builder-based API.
