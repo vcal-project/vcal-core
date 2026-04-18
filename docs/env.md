@@ -5,24 +5,28 @@ title: Environment variables
 sidebar_label: Environment variables
 ---
 
-## VCAL — Example .env for apps using vcal-core (library)
+## VCAL — Example .env (for apps using vcal-core)
 
-**vcal-core** itself does not read env vars; your app (or VCAL Server) should load them via a dotenv loader.
-To learn more about VCAL Server contact us [here](https://vcal-project.com/#contact).
+**vcal-core** does not read environment variables directly.
+Use these as conventions in your own application config layer.  
+
+To learn more about VCAL Server contact see [here](https://vcal-project.com/vcal-server).
 
 ## --- Embedding space ---
-### One of: cosine | dot
-```
-VCAL_METRIC=cosine
+```env
+VCAL_METRIC=cosine   # cosine | dot
 VCAL_DIMS=768
 ```
 
-## --- Capacity & TTL (optional) ---
-### Max active vectors; 0 or empty = unlimited
+> Map `cosine` → `Cosine`, `dot` → `Dot` when constructing the index.
+
+## --- Capacity & TTL (application-defined)
 ```
-VCAL_MAX_CAPACITY=200000
+VCAL_MAX_CAPACITY=200000   # 0 or unset = unlimited
+VCAL_TTL_SECS=0            # 0 = no TTL
+VCAL_EVICT_INTERVAL_SECS=2 # how often your eviction logic runs
 ```
-> 0 = no TTL; set >0 to expire items
+> vcal-core provides TTL and eviction primitives, but you control scheduling and enforcement.
 
 ```
 VCAL_TTL_SECS=0
@@ -33,43 +37,42 @@ VCAL_TTL_SECS=0
 VCAL_EVICT_INTERVAL_SECS=2
 ```
 
-## --- Snapshots (optional) ---
+## --- Snapshots (application-defined) ---
 ```
 VCAL_SNAPSHOT_PATH=./data/vcal.snapshot
-```
-> Autosave every N seconds; 0 = disabled
-
-```
 VCAL_SNAPSHOT_AUTOSAVE_SECS=60
-```
-> 1 = atomic write (tmp+rename), 0 = direct
-```
 VCAL_AUTOSAVE_ATOMIC=1
 ```
+> Snapshot persistence is manual in vcal-core (`to_bytes` / `from_slice`).
+> Autosave, atomic writes, and scheduling must be implemented in your application.
 
-## --- Search tuning (optional; names may differ in your app/server) ---
+## --- Search tuning ---
 ```
 VCAL_K=8
 VCAL_EF_SEARCH=128
 ```
 
-## --- Observability (app/server) ---
+> These map to runtime parameters such as `search(k)` and builder configuration.
+
+## --- Observability ---
 
 ```
 RUST_LOG=info
 RUST_BACKTRACE=1
 ```
 
-## --- HTTP server (if using vcal-server; safe to remove for library-only) ---
+## --- Optional: VCAL Server settings ---
 ```
 VCAL_BIND=0.0.0.0:8080
-```
-
-## --- Cost modeling (server dashboards; optional) ---
-```
 VCAL_TOKENS_PER_HIT=800
 ```
 
+> These apply only when running VCAL Server.
+
 ## Notes:
-- Library-only apps: read these values in your own config loader and pass to vcal-core constructors.
-- vcal-server reuses many of the same names; contact support to get access to server docs to check the exact behavior.
+- Treat this file as a reference config, not a built-in interface
+- Load values via your preferred config system (`dotenv`, `envy`, etc.)
+- Pass parsed values into:
+  - `HnswBuilder`
+  - your eviction logic
+  - your snapshot scheduler
