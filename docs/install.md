@@ -13,15 +13,18 @@ In your `Cargo.toml`:
 
 ```toml
 [dependencies]
-vcal-core = "0.1.1"
+vcal-core = "0.1.3"
 serde = { version = "1", features = ["derive"] }
 ```
 ### Optional features
 
-Enable extras via features:
+Enable optional functionality via Cargo features:
 ```
 [dependencies]
-vcal-core = { version = "0.1.1", features = ["simd", "snapshots"] }
+vcal-core = { version = "0.1.3", features = ["snapshots"] }
 ```
-- simd – enable SIMD acceleration where available
-- snapshots – enable snapshot (serde) helpers
+- `snapshots` — enables snapshot serialization via `serde` (`to_bytes` / `from_slice`)
+
+**Notes**
+- The library is **fully safe Rust** (`#![deny(unsafe_code)]``) and does not require SIMD or platform-specific features
+- Snapshot support is **byte-based only** — you are responsible for storing and loading snapshot data (e.g., filesystem, object storage, database)
