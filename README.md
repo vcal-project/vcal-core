@@ -168,6 +168,12 @@ For:
 
 ---
 
+## Documentation
+
+Full documentation with config and usage examples: [`vcal-core` docs](https://docs.vcal-project.com/)
+
+---
+
 ## Roadmap
 
 - SIMD fast path (safe abstraction)
