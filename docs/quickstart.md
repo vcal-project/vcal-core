@@ -102,4 +102,4 @@ id=faq:002 score=0.99xx
 - Add **TTL** to control memory usage  
 - Use **batch_search()** for higher throughput  
 - Persist the index via **snapshots (`to_bytes` / `from_slice`)**  
-- Wrap in a service or use VCAL Server for production  
+- Wrap in a service or use VCAL Semantic Cache for production  

@@ -10,7 +10,7 @@ sidebar_label: Environment variables
 **vcal-core** does not read environment variables directly.
 Use these as conventions in your own application config layer.  
 
-To learn more about VCAL Server contact see [here](https://vcal-project.com/vcal-server).
+To learn more about VCAL Semantic Cache contact see [here](https://vcal-project.com/vcal-server).
 
 ## --- Embedding space ---
 ```env
@@ -61,13 +61,13 @@ RUST_LOG=info
 RUST_BACKTRACE=1
 ```
 
-## --- Optional: VCAL Server settings ---
+## --- Optional: VCAL Semantic Cache settings ---
 ```
 VCAL_BIND=0.0.0.0:8080
 VCAL_TOKENS_PER_HIT=800
 ```
 
-> These apply only when running VCAL Server.
+> These apply only when running VCAL Semantic Cache.
 
 ## Notes:
 - Treat this file as a reference config, not a built-in interface

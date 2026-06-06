@@ -9,7 +9,7 @@ sidebar_label: Snapshots
 Persist and restore a VCAL **HNSW** index using the optional `serde` feature.
 
 > The snapshot format in **vcal-core** is an internal serialized structure of the `Hnsw` type.
-> **VCAL Server** may wrap this in a *Snapshot Envelope v1* for durability and metadata.
+> **VCAL Semantic Cache** may wrap this in a *Snapshot Envelope v1* for durability and metadata.
 > If you are embedding **vcal-core directly**, use the helpers below.
 
 ## Enable snapshot support
@@ -65,7 +65,7 @@ fn load_example() -> anyhow::Result<Hnsw<Cosine>> {
 - **Atomic writes**: write to a temp file and rename to avoid partial snapshots on crash
 - **Sanitization**: `from_slice` performs validation and repair (drops invalid edges, fixes layers)
 - **Format stability**: the format may evolve between versions — treat it as **opaque**
-  - For long-term durability, prefer **VCAL Server** snapshot endpoints (versioned envelope)
+  - For long-term durability, prefer **VCAL Semantic Cache** snapshot endpoints (versioned envelope)
 - **I/O cost**: saving large graphs can take seconds — keep snapshots off the hot path
 - **Validation**: consider checksums or round-trip tests in CI
 

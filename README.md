@@ -131,7 +131,7 @@ For:
 - Grafana dashboards
 - cost tracking
 
-— use [**VCAL Server**](https://vcal-project.com/vcal-server/) (higher-level component).
+— use [**VCAL Semantic Cache**](https://vcal-project.com/vcal-server/) (higher-level component).
 
 ---
 
@@ -183,7 +183,7 @@ Full documentation with config and usage examples: [`vcal-core` docs](https://do
 
 ---
 
-For production deployment, observability, and persistence, see [**VCAL Server**](https://vcal-project.com/vcal-server/)
+For production deployment, observability, and persistence, see [**VCAL Semantic Cache**](https://vcal-project.com/vcal-server/)
 
 ---
 

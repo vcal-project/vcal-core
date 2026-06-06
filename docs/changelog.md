@@ -46,7 +46,7 @@ sidebar_label: Changelog
 
 **Notes**
 - This release introduces breaking API changes in builder and persistence interfaces
-- Designed to improve safety, predictability, and integration with higher-level systems like VCAL Server
+- Designed to improve safety, predictability, and integration with higher-level systems like VCAL Semantic Cache
 
 ---
 

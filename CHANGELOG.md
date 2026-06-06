@@ -60,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Snapshot model simplified**
   - Removed paired snapshot (`.A / .B`) mechanism
   - Persistence is now explicit byte-based (`to_bytes` / `from_slice`)
-  - Storage and durability responsibility moved to higher-level systems (e.g., VCAL Server)
+  - Storage and durability responsibility moved to higher-level systems (e.g., VCAL Semantic Cache)
 
 - **API consistency improvements**
   - Unified snapshot loading behavior across all entry points
@@ -110,7 +110,7 @@ let idx = HnswBuilder::<Cosine>::default()
 - **Improved eviction precision**: TTL and LRU eviction now return consistent `(removed, freed_bytes)` across runs.
 - **Optimized snapshot I/O** to minimize memory copies on large datasets.
 - **Refined in-memory stats** — more accurate accounting of `approx_bytes` and reduced overcount on vector reuse.
-- **Simplified API surface** for snapshot and persistence features — aligned with VCAL Server persistence layer.
+- **Simplified API surface** for snapshot and persistence features — aligned with VCAL Semantic Cache persistence layer.
 
 ### Fixed
 - Resolved rare panic on startup when loading incomplete `.index` file.

@@ -17,7 +17,7 @@ Deleted items are skipped during search and are physically removed during rebuil
 
 **How big can the index get?**  
 It is limited by your process memory (RAM).
-For larger or persistent deployments, consider using a higher-level system like [VCAL Server](https://vcal-project.com/vcal-server/).
+For larger or persistent deployments, consider using a higher-level system like [VCAL Semantic Cache](https://vcal-project.com/vcal-server/).
 
 **Does it support SIMD or hardware acceleration?**  
 No. As of v0.1.2, the library is fully safe Rust (#![deny(unsafe_code)]) and does not use SIMD.
