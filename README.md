@@ -35,7 +35,7 @@ It’s designed as a minimal building block for **semantic caches** (e.g., LLM p
 
 - **HNSW index**
   - greedy descent + configurable `ef_search`
-  - corrected geometric level generation (v0.1.2)
+  - corrected geometric level generation (v0.1.3)
 
 - **Pluggable metrics**
   - `Cosine` (default)
@@ -62,7 +62,7 @@ It’s designed as a minimal building block for **semantic caches** (e.g., LLM p
 
 ```toml
 [dependencies]
-vcal-core = { version = "0.1.2", features = ["serde"] }
+vcal-core = { version = "0.1.3", features = ["serde"] }
 ```
 
 Optional features:
@@ -70,7 +70,7 @@ Optional features:
 
 > `vcal-core` is a Rust library that is currently distributed via GitHub and not yet published on crates.io.
 
-> SIMD support is intentionally deferred in v0.1.2 to keep the crate fully safe and minimal.
+> SIMD support is intentionally deferred in v0.1.3 to keep the crate fully safe and minimal.
 
 ---
 
