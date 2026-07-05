@@ -12,7 +12,7 @@
 
 # ![VCAL mark](docs/assets/vcal-favicon.png) VCAL-core
 
-**VCAL-core** is a lightweight, in-process [HNSW](https://arxiv.org/abs/1603.09320) vector index wwritten in safe Rust with optional snapshot support.  
+**VCAL-core** is a lightweight, in-process [HNSW](https://arxiv.org/abs/1603.09320) vector index written in safe Rust with optional snapshot support.  
 
 It’s designed as a minimal building block for **semantic caches** (e.g., LLM prompt deduplication) and embedded ANN search.
 
